@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket = "your-tf-bucket"
+    bucket = "dev-app-log-bucket-3084"
     key    = "${STAGE}.tfstate"
     region = "ap-south-1"
   }
