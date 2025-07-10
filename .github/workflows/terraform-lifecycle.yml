@@ -1,12 +1,6 @@
 name: Terraform Lifecycle
 
 on:
-  push:
-    branches:
-      - terraform-action
-    tags:
-      - 'deploy-dev*'
-      - 'deploy-prod*'
   workflow_dispatch:
     inputs:
       stage:
@@ -18,14 +12,20 @@ on:
         required: true
         default: apply
 
+  push:
+    branches:
+      - main
+    tags:
+      - 'deploy-dev*'
+      - 'deploy-prod*'
+
 jobs:
   terraform:
-    name: Run Terraform
+    name: Terraform ${{ inputs.action || 'apply' }} - ${{ inputs.stage || 'dev' }}
     runs-on: ubuntu-latest
-
     env:
-      STAGE: ${{ github.event.inputs.stage || (contains(github.ref, 'prod') && 'prod') || 'dev' }}
-      ACTION: ${{ github.event.inputs.action || 'apply' }}
+      STAGE: ${{ inputs.stage || 'dev' }}
+      ACTION: ${{ inputs.action || 'apply' }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -33,6 +33,13 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Download Terraform State (if exists)
+        if: env.ACTION == 'destroy'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-state-${{ env.STAGE }}
+          path: terraform
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
@@ -42,9 +49,15 @@ jobs:
       - name: Terraform Init & Select/Create Workspace
         run: |
           terraform init -backend-config="key=${STAGE}.tfstate"
-          terraform workspace list | grep -qw "${STAGE}" \
-            && terraform workspace select "${STAGE}" \
-            || terraform workspace new "${STAGE}"
+
+          terraform workspace list
+          if terraform workspace list | grep -qw "${STAGE}"; then
+            terraform workspace select "${STAGE}"
+          else
+            terraform workspace new "${STAGE}"
+          fi
+
+          echo "Current Workspace: $(terraform workspace show)"
         working-directory: terraform
 
       - name: Terraform Plan

@@ -1,3 +1,11 @@
+terraform {
+  backend "s3" {
+    bucket = "your-tf-bucket"
+    key    = "${STAGE}.tfstate"
+    region = "your-region"
+  }
+}
+
 provider "aws" {
   region = var.region
 }
