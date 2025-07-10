@@ -51,6 +51,9 @@ jobs:
             echo "ACTION=apply" >> $GITHUB_ENV
           fi
 
+      - name: Normalize STAGE to lowercase for filenames
+        run: echo "STAGE_LOWER=$(echo $STAGE | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -74,9 +77,9 @@ jobs:
         run: |
           terraform validate
           if [ "${ACTION}" = "destroy" ]; then
-            terraform plan -destroy -var-file="${STAGE}_config.tfvars" -out=tfplan
+            terraform plan -destroy -var-file="${STAGE_LOWER}_config.tfvars" -out=tfplan
           else
-            terraform plan -var-file="${STAGE}_config.tfvars" -out=tfplan
+            terraform plan -var-file="${STAGE_LOWER}_config.tfvars" -out=tfplan
           fi
         working-directory: terraform
 
@@ -87,6 +90,6 @@ jobs:
 
       - name: Terraform Destroy
         if: env.ACTION == 'destroy'
-        run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
+        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
         working-directory: terraform
 
