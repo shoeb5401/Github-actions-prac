@@ -1,89 +1,60 @@
-name: Terraform Lifecycle
+name: Terraform Deployment
 
 on:
-  workflow_dispatch:
-    inputs:
-      stage:
-        description: 'Environment (dev or prod)'
-        required: true
-        default: dev
-      action:
-        description: 'Terraform action (apply or destroy)'
-        required: true
-        default: apply
-
   push:
     branches:
       - main
     tags:
-      - 'deploy-dev*'
-      - 'deploy-prod*'
+      - 'deploy-dev'
+      - 'deploy-prod'
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment Stage (Dev or Prod)'
+        required: true
+        default: 'dev'
+      destroy:
+        description: 'Set to true to destroy infrastructure'
+        required: false
+        default: 'false'
 
 jobs:
   terraform:
-    name: Terraform ${{ inputs.action || 'apply' }} - ${{ inputs.stage || 'dev' }}
+    name: Terraform Plan & Apply/Destroy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     env:
-      STAGE: ${{ inputs.stage || 'dev' }}
-      ACTION: ${{ inputs.action || 'apply' }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_INPUT: false
+      TF_IN_AUTOMATION: true
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Download Terraform State (if exists)
-        if: env.ACTION == 'destroy'
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-state-${{ env.STAGE }}
-          path: terraform
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.8.3
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.0
+    - name: Set STAGE variable
+      id: vars
+      run: echo "STAGE=${{ github.event.inputs.stage || (startsWith(github.ref, 'refs/tags/deploy-') && split(github.ref, 'deploy-')[1]) || 'dev' }}" >> "$GITHUB_ENV"
 
-      - name: Terraform Init & Select/Create Workspace
-        run: |
-          terraform init -backend-config="key=${STAGE}.tfstate"
+    - name: Terraform Init
+      run: terraform init -backend-config="key=${STAGE}.tfstate"
 
-          terraform workspace list
-          if terraform workspace list | grep -qw "${STAGE}"; then
-            terraform workspace select "${STAGE}"
-          else
-            terraform workspace new "${STAGE}"
-          fi
+    - name: Terraform Validate
+      run: terraform validate
 
-          echo "Current Workspace: $(terraform workspace show)"
-        working-directory: terraform
+    - name: Terraform Plan
+      run: terraform plan -var-file="${STAGE}_config.tfvars"
 
-      - name: Terraform Plan
-        run: |
-          terraform validate
-          if [ "${ACTION}" = "destroy" ]; then
-            terraform plan -destroy -var-file="${STAGE}_config.tfvars" -out=tfplan
-          else
-            terraform plan -var-file="${STAGE}_config.tfvars" -out=tfplan
-          fi
-        working-directory: terraform
+    - name: Terraform Apply or Destroy
+      if: ${{ github.event.inputs.destroy == 'true' }}
+      run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
 
-      - name: Terraform Apply
-        if: env.ACTION == 'apply'
-        run: terraform apply -auto-approve tfplan
-        working-directory: terraform
-
-      - name: Terraform Destroy
-        if: env.ACTION == 'destroy'
-        run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
-        working-directory: terraform
-
-      - name: Upload Terraform State
-        if: env.ACTION == 'apply'
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-state-${{ env.STAGE }}
-          path: terraform/terraform.tfstate
-
+    - name: Terraform Apply
+      if: ${{ github.event.inputs.destroy != 'true' }}
+      run: terraform apply -auto-approve -var-file="${STAGE}_config.tfvars"
