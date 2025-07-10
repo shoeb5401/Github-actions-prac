@@ -1,0 +1,76 @@
+name: Terraform Lifecycle
+
+on:
+  push:
+    branches:
+      - terraform-action
+    tags:
+      - 'deploy-dev*'
+      - 'deploy-prod*'
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Environment (dev or prod)'
+        required: true
+        default: dev
+      action:
+        description: 'Terraform action (apply or destroy)'
+        required: true
+        default: apply
+
+jobs:
+  terraform:
+    name: Run Terraform
+    runs-on: ubuntu-latest
+
+    env:
+      STAGE: ${{ github.event.inputs.stage || (contains(github.ref, 'prod') && 'prod') || 'dev' }}
+      ACTION: ${{ github.event.inputs.action || 'apply' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init & Select/Create Workspace
+        run: |
+          terraform init -backend-config="key=${STAGE}.tfstate"
+          terraform workspace list | grep -qw "${STAGE}" \
+            && terraform workspace select "${STAGE}" \
+            || terraform workspace new "${STAGE}"
+        working-directory: terraform
+
+      - name: Terraform Plan
+        run: |
+          terraform validate
+          if [ "${ACTION}" = "destroy" ]; then
+            terraform plan -destroy -var-file="${STAGE}_config.tfvars" -out=tfplan
+          else
+            terraform plan -var-file="${STAGE}_config.tfvars" -out=tfplan
+          fi
+        working-directory: terraform
+
+      - name: Terraform Apply
+        if: env.ACTION == 'apply'
+        run: terraform apply -auto-approve tfplan
+        working-directory: terraform
+
+      - name: Terraform Destroy
+        if: env.ACTION == 'destroy'
+        run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
+        working-directory: terraform
+
+      - name: Upload Terraform State
+        if: env.ACTION == 'apply'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state-${{ env.STAGE }}
+          path: terraform/terraform.tfstate
+
