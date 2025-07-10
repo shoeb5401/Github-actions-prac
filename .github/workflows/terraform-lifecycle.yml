@@ -1,60 +1,92 @@
-name: Terraform Deployment
+name: Terraform Lifecycle
 
 on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Environment (Dev or Prod)'
+        required: true
+        default: Dev
+      action:
+        description: 'Terraform action (apply or destroy)'
+        required: true
+        default: apply
+
   push:
     branches:
       - main
     tags:
-      - 'deploy-dev'
-      - 'deploy-prod'
-  workflow_dispatch:
-    inputs:
-      stage:
-        description: 'Deployment Stage (Dev or Prod)'
-        required: true
-        default: 'dev'
-      destroy:
-        description: 'Set to true to destroy infrastructure'
-        required: false
-        default: 'false'
+      - 'deploy-dev*'
+      - 'deploy-prod*'
 
 jobs:
   terraform:
-    name: Terraform Plan & Apply/Destroy
+    name: Terraform Lifecycle
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
+
     env:
-      TF_INPUT: false
-      TF_IN_AUTOMATION: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.8.3
+      - name: Set Stage and Action from Inputs or Tag
+        id: set_vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "STAGE=${{ github.event.inputs.stage }}" >> $GITHUB_ENV
+            echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+          else
+            ref_name="${GITHUB_REF##*/}"
+            if [[ "$ref_name" == deploy-dev* ]]; then
+              echo "STAGE=Dev" >> $GITHUB_ENV
+            elif [[ "$ref_name" == deploy-prod* ]]; then
+              echo "STAGE=Prod" >> $GITHUB_ENV
+            else
+              echo "STAGE=Dev" >> $GITHUB_ENV
+            fi
+            echo "ACTION=apply" >> $GITHUB_ENV
+          fi
 
-    - name: Set STAGE variable
-      id: vars
-      run: echo "STAGE=${{ github.event.inputs.stage || (startsWith(github.ref, 'refs/tags/deploy-') && split(github.ref, 'deploy-')[1]) || 'dev' }}" >> "$GITHUB_ENV"
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
 
-    - name: Terraform Init
-      run: terraform init -backend-config="key=${STAGE}.tfstate"
+      - name: Terraform Init
+        run: terraform init -backend-config="key=${STAGE}.tfstate"
+        working-directory: terraform
 
-    - name: Terraform Validate
-      run: terraform validate
+      - name: Terraform Workspace Select or Create
+        run: |
+          terraform workspace list
+          if terraform workspace list | grep -qw "${STAGE}"; then
+            terraform workspace select "${STAGE}"
+          else
+            terraform workspace new "${STAGE}"
+          fi
+        working-directory: terraform
 
-    - name: Terraform Plan
-      run: terraform plan -var-file="${STAGE}_config.tfvars"
+      - name: Terraform Validate and Plan
+        run: |
+          terraform validate
+          if [ "${ACTION}" = "destroy" ]; then
+            terraform plan -destroy -var-file="${STAGE}_config.tfvars" -out=tfplan
+          else
+            terraform plan -var-file="${STAGE}_config.tfvars" -out=tfplan
+          fi
+        working-directory: terraform
 
-    - name: Terraform Apply or Destroy
-      if: ${{ github.event.inputs.destroy == 'true' }}
-      run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
+      - name: Terraform Apply
+        if: env.ACTION == 'apply'
+        run: terraform apply -auto-approve tfplan
+        working-directory: terraform
 
-    - name: Terraform Apply
-      if: ${{ github.event.inputs.destroy != 'true' }}
-      run: terraform apply -auto-approve -var-file="${STAGE}_config.tfvars"
+      - name: Terraform Destroy
+        if: env.ACTION == 'destroy'
+        run: terraform destroy -auto-approve -var-file="${STAGE}_config.tfvars"
+        working-directory: terraform
+
