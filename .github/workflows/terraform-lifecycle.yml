@@ -16,8 +16,8 @@ on:
     branches:
       - main
     tags:
-      - 'deploy-dev*'
-      - 'deploy-prod*'
+      - 'deploy-dev'
+      - 'deploy-prod'
 
 jobs:
   terraform:

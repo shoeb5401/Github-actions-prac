@@ -60,7 +60,15 @@ This project automates the provisioning of EC2 instances on AWS using Terraform.
 
 ```bash
 export AWS_SHARED_CREDENTIALS_FILE="/path/to/credentials"
+
 export AWS_PROFILE="your_profile_name"
+```
+S3 Bucket to store the terraform state file.
+```
+aws s3api create-bucket \
+  --bucket dev-terraform-state-bucket-3084 \
+  --region ap-south-1 \
+  --create-bucket-configuration LocationConstraint=ap-south-1
 ```
 
 * Add your public IP in `*.tfvars` file (Optional, for SSH access)
