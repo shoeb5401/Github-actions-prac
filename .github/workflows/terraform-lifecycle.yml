@@ -111,9 +111,13 @@ jobs:
                 echo "Terraform output was invalid or empty"
                 exit 1
               fi
-              echo "ec2_ip=$EC2_IP" >> "$GITHUB_OUTPUT"
-
-
+          
+              # Multiline-safe GitHub output format
+              {
+                echo "ec2_ip<<EOF"
+                echo "$EC2_IP"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
 
       - name: Wait for port 80 to be available
         working-directory: terraform
