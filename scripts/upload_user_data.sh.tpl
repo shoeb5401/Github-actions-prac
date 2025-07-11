@@ -22,7 +22,7 @@ mvn clean package
 cd target
 
 # Run the JAR with logging
-sudo nohup java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80 &
+ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80 &
 
 # Create shutdown upload script
 cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
