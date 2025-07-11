@@ -99,42 +99,41 @@ jobs:
         working-directory: terraform
 
       - name: Get EC2 Public IP
-       id: ec2_ip
-       if: env.ACTION == 'apply'
-       working-directory: terraform
-       run: |
-            set -e
-            # Only grab the first IP-looking string and strip all whitespace
-            EC2_IP=$(terraform output writeonly_instance_public_ip | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1 | tr -d ' \t\n\r')
-            if [[ -z "$EC2_IP" ]]; then
-              echo "Terraform output was invalid or empty"
-              exit 1
-            fi
-            echo "ec2_ip<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$EC2_IP" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+        id: ec2_ip
+        if: env.ACTION == 'apply'
+        working-directory: terraform
+        run: |
+          set -e
+          # Only grab the first IP-looking string and strip all whitespace
+          EC2_IP=$(terraform output writeonly_instance_public_ip | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1 | tr -d ' \t\n\r')
+          if [[ -z "$EC2_IP" ]]; then
+            echo "Terraform output was invalid or empty"
+            exit 1
+          fi
+          echo "ec2_ip<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$EC2_IP" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-      
       - name: Wait for port 80 to be available
         if: env.ACTION == 'apply'
         working-directory: terraform
         run: |
-              EC2_IP="${{ steps.ec2_ip.outputs.ec2_ip }}"
-              echo "🌐 Pinging app at http://$EC2_IP"
+          EC2_IP="${{ steps.ec2_ip.outputs.ec2_ip }}"
+          echo "🌐 Pinging app at http://$EC2_IP"
 
-              for i in {1..30}; do
-                echo "⏳ Attempt $i..."
-                STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$EC2_IP")
-                echo "➡️ Status Code: $STATUS_CODE"
+          for i in {1..30}; do
+            echo "⏳ Attempt $i..."
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$EC2_IP")
+            echo "➡️ Status Code: $STATUS_CODE"
 
-                if [[ "$STATUS_CODE" == "200" ]]; then
-                  echo "✅ App is reachable at http://$EC2_IP"
-                  exit 0
-                fi
+            if [[ "$STATUS_CODE" == "200" ]]; then
+              echo "✅ App is reachable at http://$EC2_IP"
+              exit 0
+            fi
 
-                echo "❌ Not reachable yet. Sleeping..."
-                sleep 10
-              done
+            echo "❌ Not reachable yet. Sleeping..."
+            sleep 10
+          done
 
-              echo "❌ Failed: App not reachable after 30 attempts"
-              exit 1
+          echo "❌ Failed: App not reachable after 30 attempts"
+          exit 1
