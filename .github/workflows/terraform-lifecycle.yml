@@ -122,14 +122,16 @@ jobs:
         working-directory: terraform
         if: env.ACTION == 'apply'
         run: |
-          for i in {1..30}; do
-          echo "Trying ${{ steps.ec2_ip.outputs.ec2_ip }} on port 80..."
-          if curl -s --head "http://${{ steps.ec2_ip.outputs.ec2_ip }}" | grep "200" > /dev/null; then
-            echo "App is up and reachable"
-            exit 0
-          fi
-          echo "Waiting for app..."
-          sleep 20
-          done
-          echo "Timeout waiting for app"
-          exit 1
+              for i in {1..30}; do
+                echo "Trying ${{ steps.ec2_ip.outputs.ec2_ip }} on port 80..."
+                STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ steps.ec2_ip.outputs.ec2_ip }}")
+                echo "HTTP status code: $STATUS_CODE"
+                if [[ "$STATUS_CODE" == "200" ]]; then
+                  echo "✅ App is up and reachable"
+                  exit 0
+                fi
+                echo "Waiting for app..."
+                sleep 20
+              done
+              echo "❌ Timeout waiting for app"
+              exit 1
