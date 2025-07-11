@@ -131,7 +131,7 @@ jobs:
               break
             fi
             echo "❌ Port 80 not open yet. Attempt $i of $MAX_PORT_ATTEMPTS. Retrying in 5 seconds..."
-            sleep 5
+            sleep 10
           done
 
           echo "🌐 Verifying HTTP response with curl..."

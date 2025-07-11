@@ -1,6 +1,6 @@
-# 🚀 DevOps EC2 Automation with Terraform
+# 📘 DevOps EC2 Automation with Terraform (GitHub Actions Enabled)
 
-This project automates the provisioning of EC2 instances on AWS using Terraform. It supports multi-environment deployments (`Dev`, `Prod`) and securely deploys a Spring Boot application (`techeazy-devops`). It includes SSH key pair creation, auto-shutdown logic, and automated log uploads to a private S3 bucket using IAM roles.
+This project provides a fully automated infrastructure deployment pipeline using **Terraform** and **GitHub Actions**. It provisions AWS EC2 instances, configures IAM roles, uploads logs to S3, and ensures application health using port checks.
 
 ---
 
@@ -9,139 +9,141 @@ This project automates the provisioning of EC2 instances on AWS using Terraform.
 ```
 .
 ├── backend/
-│   └── techeazy-devops-0.0.1-SNAPSHOT.jar     # Compiled Spring Boot JAR
-├── README.md                                  # Project documentation
+│   └── techeazy-devops-0.0.1-SNAPSHOT.jar     # Spring Boot JAR
 ├── scripts/
-│   ├── upload_user_data.sh.tpl                # EC2 bootstrap script for log upload (write-only)
-│   └── download_user_data.sh.tpl              # EC2 bootstrap script for log download (read-only)
-└── terraform/
-    ├── deploy.sh                              # Stage-aware deployment script
-    ├── dev_config.tfvars                      # Dev environment config
-    ├── prod_config.tfvars                     # Prod environment config
-    ├── main.tf                                # Terraform resources
-    ├── outputs.tf                             # Terraform outputs
-    ├── variables.tf                           # Input variable definitions
-    ├── terraform.tfstate                      # Terraform state (auto-generated)
-    └── terraform.tfstate.backup               # Backup state (auto-generated)
+│   ├── upload_user_data.sh.tpl                # Write-only bootstrap
+│   └── download_user_data.sh.tpl              # Read-only bootstrap
+├── terraform/
+│   ├── deploy.sh                              # Bash deploy script
+│   ├── dev_config.tfvars                      # Dev config
+│   ├── prod_config.tfvars                     # Prod config
+│   ├── main.tf                                # Resources definition
+│   ├── outputs.tf                             # Outputs
+│   ├── variables.tf                           # Variable definitions
+│   └── *.tfstate                              # Auto-generated state files
+├── .github/workflows/
+│   └── terraform.yml                          # GitHub Actions workflow
+└── README.md
 ```
 
 ---
 
-## ⚙️ Key Features
+## 🔧 Key Features
 
-* ✅ **Multi-Environment Support**: Seamlessly deploy to `Dev` or `Prod` using stage-aware configs.
-* 🔐 **SSH Key Pair Generation**: 4096-bit RSA keys generated and saved locally.
-* 🛡️ **Restricted Security Group**:
+* 🌍 **Multi-Environment Deployments**: Supports `Dev` and `Prod`
+* 🔐 **Secure SSH Key Generation**
+* ☁️ **S3 Logging Lifecycle Policy (7 days retention)**
+* 📡 **EC2 Health Checks via GitHub Actions**
+* 🛡️ **IAM Role-Based Access Control**
+* 🚦 **Auto Shutdown After 60 Minutes**
 
-  * SSH access limited to your public IP
-  * Open port 80 for HTTP traffic
-* 🖥️ **Dual EC2 Deployment**:
+---
 
-  * **Write-only instance** uploads logs to S3
-  * **Read-only instance** can securely download and view logs
-* 💾 **Custom EBS, AMI, and instance type** based on environment
-* ☁️ **S3 Bucket Lifecycle Policy**: Auto-deletes logs older than 7 days
-* 📜 **Fully Automated App Setup**:
+## 🚀 GitHub Actions CI/CD
 
-  * Installs dependencies
-  * Clones and builds Spring Boot app
-  * Runs app in background using `nohup`
-* ☁️ **S3 Upload on Shutdown**:
+### Workflow Trigger
 
-  * Script and systemd service ensures graceful upload of logs to S3
-* ⏱️ **Auto-Termination**: Instance shuts down automatically after 60 minutes to save cost
+* Manual via `workflow_dispatch`
+* Auto-deploy on push to `main` with tags:
+
+  * `deploy-dev`
+  * `deploy-prod`
+
+### Workflow Behavior
+
+1. Detects stage (Dev/Prod) and action (apply/destroy)
+2. Initializes Terraform with workspace logic
+3. Validates and plans based on selected config
+4. Applies or destroys infrastructure
+5. Extracts EC2 public IP and waits for HTTP 200 response on port 80
 
 ---
 
 ## 🧰 Prerequisites
 
-* [Terraform](https://developer.hashicorp.com/terraform/downloads)
-* AWS credentials configured in default or custom profile
+* [Terraform CLI](https://developer.hashicorp.com/terraform/downloads)
+* AWS CLI with credentials and profile set
 
 ```bash
 export AWS_SHARED_CREDENTIALS_FILE="/path/to/credentials"
+export AWS_PROFILE="your_profile"
+```
 
-export AWS_PROFILE="your_profile_name"
-```
-S3 Bucket to store the terraform state file.
-```
+* S3 bucket for Terraform state:
+
+```bash
 aws s3api create-bucket \
   --bucket dev-terraform-state-bucket-3084 \
   --region ap-south-1 \
   --create-bucket-configuration LocationConstraint=ap-south-1
 ```
 
-* Add your public IP in `*.tfvars` file (Optional, for SSH access)
+---
+
+## 🔐 IAM Roles
+
+| Role        | Access Type | Scope    | Permissions                  |
+| ----------- | ----------- | -------- | ---------------------------- |
+| `writeonly` | Write-only  | EC2      | `s3:PutObject`               |
+| `readonly`  | Read-only   | EC2/User | `s3:GetObject`, `ListBucket` |
 
 ---
 
-## 🧱 IAM Roles & Access
+## 🧠 EC2 Bootstrap Logic
 
-| Role        | Access Type | Attached To       | Permissions                     |
-| ----------- | ----------- | ----------------- | ------------------------------- |
-| `writeonly` | Write-only  | EC2 instance      | `s3:PutObject` only             |
-| `readonly`  | Read-only   | EC2 instance/user | `s3:GetObject`, `s3:ListBucket` |
+**On Launch (Write-Only EC2):**
 
-* IAM policies prevent privilege escalation (write role cannot read)
-* IAM instance profiles are used to attach roles to EC2 securely
+* Installs JDK, Maven, AWS CLI
+* Clones & builds Spring Boot app
+* Starts JAR with `nohup`
+* Creates a shutdown hook:
 
----
-
-## 🚀 Deploying Infrastructure & App
-
-Run the stage-specific deployment script:
-
-```bash
-cd terraform/
-./deploy.sh Dev     # or ./deploy.sh Prod
-```
-
-This will:
-
-* Inject correct values into `user_data.sh.tpl`
-* Provision EC2, S3, IAM, and networking
-* Launch the app and enable automated log handling
+  * Uploads `/home/ubuntu/script.log` to S3
+  * Shuts down after 60 mins
 
 ---
 
-## 🔧 EC2 Bootstrap (user\_data)
-
-### Actions Performed (write-only EC2):
-
-* System update + install: JDK 21, Maven, AWS CLI
-* Clone and build app from GitHub
-* Run `.jar` in background
-* Configure `systemd` shutdown hook to:
-
-  * Upload `/home/ubuntu/script.log` to S3
-  * Auto-shutdown after 60 minutes
-
-```bash
-aws s3 cp /home/ubuntu/script.log s3://<bucket-name>/app/logs/
-```
-
----
-
-## 🔎 Viewing Logs from S3
-
-Use your `readonly` credentials or EC2 instance to list and download logs:
+## 📤 Log Retrieval (Read-Only EC2)
 
 ```bash
 aws configure --profile readonly
-aws s3 ls s3://<your-bucket-name>/app/logs/ --profile readonly
-aws s3 cp s3://<your-bucket-name>/app/logs/script.log . --profile readonly
+aws s3 ls s3://<bucket>/app/logs/ --profile readonly
+aws s3 cp s3://<bucket>/app/logs/script.log . --profile readonly
 ```
 
-> Ensure that `readonly` IAM role or profile is used to avoid unauthorized access.
+---
+
+## 📎 Terraform Lifecycle Usage
+
+```bash
+# From GitHub UI
+# Manually trigger with inputs: stage = Dev or Prod, action = apply/destroy
+
+# From terminal (for bash deploy.sh)
+cd terraform/
+./deploy.sh Dev
+```
 
 ---
 
+## ✅ Tips
 
-## 💡 Tips
-
-* For **secure key management**, `.pem` files are saved locally with `0400` permissions.
-* Enable logging in `upload-script-log.service` to debug uploads on shutdown.
-* Use `terraform destroy` to clean up infra (includes force destroy on bucket).
+* Use `terraform destroy` to tear down resources
+* Set `.pem` key permissions to `0400`
+* Check systemd logs for shutdown log uploads
 
 ---
 
+## 🧪 Health Check Logic
+
+After apply, GitHub Actions will:
+
+* Extract EC2 public IP from outputs
+* Use `nc` and `curl` to validate port 80
+* Retry for up to 5 minutes
+
+---
+
+## 📌 Authors
+
+Maintained by **shoeb qureshi** — feel free to contribute or open issues.
