@@ -122,6 +122,8 @@ jobs:
         run: |
 
           echo "🌐 Waiting for app at http://$EC2_IP"
+          curl -v "http://$EC2_IP"
+
           echo "📡 EC2_IP resolved to: $EC2_IP"  # Debug print
 
           echo "⏳ Waiting 20 seconds before starting curl checks..."
