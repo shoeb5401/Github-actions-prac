@@ -98,39 +98,38 @@ jobs:
         run: terraform output
         working-directory: terraform
 
-
       - name: Get EC2 Public IP
         working-directory: terraform
         id: ec2_ip
         if: env.ACTION == 'apply'
         run: |
-              set -e
-              RAW_OUTPUT=$(terraform output writeonly_instance_public_ip 2>/dev/null || echo "")
-              EC2_IP=$(echo "$RAW_OUTPUT" | tr -d '"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')
-              if [[ -z "$EC2_IP" ]]; then
-                echo "Terraform output was invalid or empty"
-                exit 1
-              fi
-          
-              # Multiline-safe GitHub output format
-              {
-                echo "ec2_ip<<EOF"
-                echo "$EC2_IP"
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
+          set -e
+          RAW_OUTPUT=$(terraform output writeonly_instance_public_ip 2>/dev/null || echo "")
+          EC2_IP=$(echo "$RAW_OUTPUT" | tr -d '"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')
+          if [[ -z "$EC2_IP" ]]; then
+            echo "Terraform output was invalid or empty"
+            exit 1
+          fi
+
+          # Multiline-safe GitHub output format
+          {
+            echo "ec2_ip<<EOF"
+            echo "$EC2_IP"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Wait for port 80 to be available
         working-directory: terraform
         if: env.ACTION == 'apply'
         run: |
-                for i in {1..30}; do
-                echo "Trying ${{ steps.ec2_ip.outputs.ec2_ip }} on port 80..."
-                if curl -s --head "http://${{ steps.ec2_ip.outputs.ec2_ip }}" | grep "200 OK" > /dev/null; then
-                  echo "App is up and reachable"
-                  exit 0
-                fi
-                echo "Waiting for app..."
-                sleep 10
-                done
-                echo "Timeout waiting for app"
-                exit 1
+          for i in {1..30}; do
+          echo "Trying ${{ steps.ec2_ip.outputs.ec2_ip }} on port 80..."
+          if curl -s --head "http://${{ steps.ec2_ip.outputs.ec2_ip }}" | grep "200" > /dev/null; then
+            echo "App is up and reachable"
+            exit 0
+          fi
+          echo "Waiting for app..."
+          sleep 20
+          done
+          echo "Timeout waiting for app"
+          exit 1

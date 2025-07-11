@@ -3,8 +3,6 @@
 exec > /home/ubuntu/script.log 2>&1
 set -x
 
-# Wait for cloud instance to be fully up and running
-sleep 30
 # Install dependencies
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y openjdk-21-jdk maven unzip
