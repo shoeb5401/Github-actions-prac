@@ -93,3 +93,23 @@ jobs:
         run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
         working-directory: terraform
 
+      - name: Get EC2 Public IP
+        id: writeonly_instance_public_ip
+        run: |
+            EC2_IP=$(terraform output -raw writeonly_instance_public_ip)
+            echo "EC2_IP=$EC2_IP" >> "$GITHUB_ENV"
+      
+
+      - name: Wait for port 80 to be available
+        run: |
+            for i in {1..10}; do
+              echo "Checking if port 80 is reachable on $EC2_IP..."
+              if curl -s --head "http://$EC2_IP" | grep "200 OK" > /dev/null; then
+                echo "App is up and serving on port 80"
+                exit 0
+              fi
+              echo "App not ready yet. Retrying in 10 seconds..."
+              sleep 10
+            done
+            echo "Timeout: App not reachable on port 80"
+            exit 1
