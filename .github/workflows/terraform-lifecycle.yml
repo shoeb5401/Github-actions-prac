@@ -105,9 +105,10 @@ jobs:
         if: env.ACTION == 'apply'
         run: |
               set -e
-              EC2_IP=$(terraform output -raw writeonly_instance_public_ip 2>/dev/null || echo "")
+              RAW_OUTPUT=$(terraform output writeonly_instance_public_ip 2>/dev/null || echo "")
+              EC2_IP=$(echo "$RAW_OUTPUT" | tr -d '"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')
               if [[ -z "$EC2_IP" ]]; then
-                echo "Terraform output for writeonly_instance_public_ip is empty or failed."
+                echo "Terraform output was invalid or empty"
                 exit 1
               fi
               echo "ec2_ip=$EC2_IP" >> "$GITHUB_OUTPUT"
@@ -118,14 +119,14 @@ jobs:
         working-directory: terraform
         if: env.ACTION == 'apply'
         run: |
-          for i in {1..10}; do
-            echo "Checking if port 80 is reachable on $EC2_IP..."
-            if curl -s --head "http://$EC2_IP" | grep "200 OK" > /dev/null; then
-              echo "App is up and serving on port 80"
-              exit 0
-            fi
-            echo "App not ready yet. Retrying in 10 seconds..."
-            sleep 10
-          done
-          echo "Timeout: App not reachable on port 80"
-          exit 1
+                for i in {1..30}; do
+                echo "Trying ${{ steps.ec2_ip.outputs.ec2_ip }} on port 80..."
+                if curl -s --head "http://${{ steps.ec2_ip.outputs.ec2_ip }}" | grep "200 OK" > /dev/null; then
+                  echo "App is up and reachable"
+                  exit 0
+                fi
+                echo "Waiting for app..."
+                sleep 10
+                done
+                echo "Timeout waiting for app"
+                exit 1
