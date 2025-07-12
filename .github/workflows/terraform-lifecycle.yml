@@ -133,11 +133,12 @@ jobs:
 
       - name: SSH and Tail Logs
         if: env.ACTION == 'apply'
+        continue-on-error: true
         working-directory: terraform
         run: |
           chmod 400 "${{ env.key_path }}"
           ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} \
-          "timeout 150 tail -f /home/ubuntu/script.log"
+          "timeout 170 tail -f /home/ubuntu/script.log || true"
 
       - name: Wait for port 80 to be available
         if: env.ACTION == 'apply'
