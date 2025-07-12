@@ -66,8 +66,8 @@ sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
 
-# Auto-shutdown after 60 minutes
-nohup shutdown -h +60 &
+# Auto-shutdown after 10 minutes
+nohup sudo shutdown -h +10 &
 
 exit 0
 

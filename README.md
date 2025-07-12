@@ -22,7 +22,7 @@ This project provides a fully automated infrastructure deployment pipeline using
 │   ├── variables.tf                           # Variable definitions
 │   └── *.tfstate                              # Auto-generated state files
 ├── .github/workflows/
-│   └── terraform.yml                          # GitHub Actions workflow
+│   └── terraform-lifecycle.yml                # GitHub Actions workflow
 └── README.md
 ```
 
@@ -30,12 +30,13 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ## 🔧 Key Features
 
-* 🌍 **Multi-Environment Deployments**: Supports `Dev` and `Prod`
-* 🔐 **Secure SSH Key Generation**
-* ☁️ **S3 Logging Lifecycle Policy (7 days retention)**
-* 📡 **EC2 Health Checks via GitHub Actions**
-* 🛡️ **IAM Role-Based Access Control**
-* 🚦 **Auto Shutdown After 60 Minutes**
+- 🌍 **Multi-Environment Deployments**: Supports `Dev` and `Prod`
+- 🔐 **Secure SSH Key Generation**
+- ☁️ **S3 Logging Lifecycle Policy (7 days retention)**
+- 📡 **EC2 Health Checks via GitHub Actions**
+- 🛡️ **IAM Role-Based Access Control**
+- 🚦 **Auto Shutdown After 60 Minutes**
+- 🖥️ **Live SSH Log Monitoring**
 
 ---
 
@@ -43,11 +44,11 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ### Workflow Trigger
 
-* Manual via `workflow_dispatch`
-* Auto-deploy on push to `main` with tags:
+- Manual via `workflow_dispatch`
+- Auto-deploy on push to `main` with tags:
 
-  * `deploy-dev`
-  * `deploy-prod`
+  - `deploy-dev`
+  - `deploy-prod`
 
 ### Workflow Behavior
 
@@ -56,20 +57,24 @@ This project provides a fully automated infrastructure deployment pipeline using
 3. Validates and plans based on selected config
 4. Applies or destroys infrastructure
 5. Extracts EC2 public IP and waits for HTTP 200 response on port 80
+6. SSH into the EC2 instance using the generated `.pem` key and runs:
+   - `tail -f /home/ubuntu/script.log`
+   - Exits gracefully and continues workflow
 
 ---
 
 ## 🧰 Prerequisites
 
-* [Terraform CLI](https://developer.hashicorp.com/terraform/downloads)
-* AWS CLI with credentials and profile set
+- [Terraform CLI](https://developer.hashicorp.com/terraform/downloads)
+- AWS CLI with credentials and profile set
+- Github Secrets with same AWS credentials [AWS_ACCESS_KEY , AWS_SECRET_ACCESS_KEY , AWS_REGION]
 
 ```bash
 export AWS_SHARED_CREDENTIALS_FILE="/path/to/credentials"
 export AWS_PROFILE="your_profile"
 ```
 
-* S3 bucket for Terraform state:
+- S3 bucket for Terraform state:
 
 ```bash
 aws s3api create-bucket \
@@ -93,13 +98,13 @@ aws s3api create-bucket \
 
 **On Launch (Write-Only EC2):**
 
-* Installs JDK, Maven, AWS CLI
-* Clones & builds Spring Boot app
-* Starts JAR with `nohup`
-* Creates a shutdown hook:
+- Installs JDK, Maven, AWS CLI
+- Clones & builds Spring Boot app
+- Starts JAR with `nohup`
+- Creates a shutdown hook:
 
-  * Uploads `/home/ubuntu/script.log` to S3
-  * Shuts down after 60 mins
+  - Uploads `/home/ubuntu/script.log` to S3
+  - Shuts down after 10 mins
 
 ---
 
@@ -107,9 +112,23 @@ aws s3api create-bucket \
 
 ```bash
 aws configure --profile readonly
-aws s3 ls s3://<bucket>/app/logs/ --profile readonly
-aws s3 cp s3://<bucket>/app/logs/script.log . --profile readonly
+aws s3 ls s3://<bucket>/app/logs/ 
+aws s3 cp s3://<bucket>/app/logs/script.log . 
 ```
+
+---
+
+## 🔐 SSH Log Monitoring (CI/CD)
+
+After infrastructure is deployed via GitHub Actions:
+
+1. The `.pem` SSH private key is extracted from Terraform output
+2. GitHub Actions securely connects to the EC2 instance via SSH
+3. Runs `tail -f /var/log/script.log`
+4. Exit code `124` from timeout is handled gracefully
+5. Port 80 health check continues without interruption
+
+No manual intervention is needed. The log monitoring is part of the CI workflow.
 
 ---
 
@@ -128,9 +147,9 @@ cd terraform/
 
 ## ✅ Tips
 
-* Use `terraform destroy` to tear down resources
-* Set `.pem` key permissions to `0400`
-* Check systemd logs for shutdown log uploads
+- Use `terraform destroy` to tear down resources
+- Set `.pem` key permissions to `0400`
+- Check systemd logs for shutdown log uploads
 
 ---
 
@@ -138,9 +157,9 @@ cd terraform/
 
 After apply, GitHub Actions will:
 
-* Extract EC2 public IP from outputs
-* Use `nc` and `curl` to validate port 80
-* Retry for up to 5 minutes
+- Extract EC2 public IP from outputs
+- Use `nc` and `curl` to validate port 80
+- Retry for up to 5 minutes
 
 ---
 
