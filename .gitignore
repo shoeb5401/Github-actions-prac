@@ -13,3 +13,4 @@ override.tf.json
 *_override.tf.json
 *.secrets
 .terraform.lock.hcl
+event.json
