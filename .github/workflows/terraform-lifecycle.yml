@@ -60,7 +60,7 @@ jobs:
           terraform_version: 1.5.0
 
       - name: Terraform Init
-        run: terraform init -backend-config="backend-${STAGE_LOWER}.tfstate"
+        run: terraform init -backend-config="backend-${STAGE_LOWER}.config"
         working-directory: terraform
 
       - name: Terraform Workspace Select or Create
