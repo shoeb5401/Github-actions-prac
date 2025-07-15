@@ -1,8 +1,6 @@
 terraform {
   backend "s3" {
-    bucket = "${STAGE}-terraform-state-bucket-3084"
-    key    = "${STAGE}.tfstate"
-    region = "ap-south-1"
+ # bucket, key, and region will be injected via -backend-config
   }
 }
 
