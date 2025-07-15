@@ -74,7 +74,7 @@ export AWS_SHARED_CREDENTIALS_FILE="/path/to/credentials"
 export AWS_PROFILE="your_profile"
 ```
 
-- S3 bucket for Terraform state:
+- S3 bucket for Terraform state (Dev/Prod):
 
 ```bash
 aws s3api create-bucket \
@@ -112,8 +112,8 @@ aws s3api create-bucket \
 
 ```bash
 aws configure --profile readonly
-aws s3 ls s3://<bucket>/app/logs/ 
-aws s3 cp s3://<bucket>/app/logs/script.log . 
+aws s3 ls s3://<bucket>/app/logs/
+aws s3 cp s3://<bucket>/app/logs/script.log .
 ```
 
 ---

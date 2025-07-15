@@ -31,8 +31,9 @@ exec >> /var/log/upload-to-s3.log 2>&1
 set -e
 
 BUCKET_NAME="${s3_bucket_name}"
+STAGE="${stage}"
 LOG_FILE="/home/ubuntu/script.log"
-S3_KEY="app/logs/script.log"
+S3_KEY="logs/\${STAGE}/script.log"
 
 if [ -f "\$LOG_FILE" ]; then
   aws s3 cp "\$LOG_FILE" "s3://\$BUCKET_NAME/\$S3_KEY"
