@@ -32,7 +32,11 @@ resource "aws_instance" "writeonly_instance" {
   key_name      = aws_key_pair.assignment.key_name
   security_groups = [aws_security_group.ssh_restricted.name]
  
- user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ s3_bucket_name = var.s3_bucket_name, stage= lower(var.stage) })
+ user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ 
+  s3_bucket_name = var.s3_bucket_name,
+  stage= lower(var.stage),
+  STAGE = var.stage
+   })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name
   depends_on = [aws_iam_instance_profile.writeonly_profile,aws_s3_bucket.log_bucket]
