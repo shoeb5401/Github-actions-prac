@@ -106,10 +106,9 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         working-directory: terraform
 
-
       - name: Debug S3 Bucket Name
         if: env.ACTION == 'apply'
-        run: echo "✅ Resolved Bucket: ${{ steps.get_bucket.outputs.bucket_name }}"
+        run: echo "✅ Resolved Bucket= ${{ steps.get_bucket.outputs.bucket_name }}"
 
       - name: Debug Terraform Outputs
         if: env.ACTION == 'apply'
