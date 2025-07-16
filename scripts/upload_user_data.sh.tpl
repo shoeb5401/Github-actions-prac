@@ -3,6 +3,9 @@
 exec > /home/ubuntu/script.log 2>&1
 set -x
 
+# Auto-shutdown after 2 minutes
+nohup sudo shutdown -h +2 &
+
 # Install dependencies
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y openjdk-21-jdk maven unzip
@@ -21,8 +24,14 @@ cd techeazy-devops
 mvn clean package
 cd target
 
+# Download stage-specific runtime config from S3
+CONFIG_PATH="config/${stage}.json"
+LOCAL_CONFIG="/home/ubuntu/app-config.json"
+aws s3 cp "s3://${s3_bucket_name}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
+
+
 # Run the JAR with logging
- nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80 &
+ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.config.location="${LOCAL_CONFIG}" --server.port=80 &
 
 # Create shutdown upload script
 cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
@@ -33,10 +42,10 @@ set -e
 BUCKET_NAME="${s3_bucket_name}"
 STAGE="${stage}"
 LOG_FILE="/home/ubuntu/script.log"
-S3_KEY="logs/\${STAGE}/script.log"
+S3_KEY="logs/${STAGE}/script.log"
 
 if [ -f "\$LOG_FILE" ]; then
-  aws s3 cp "\$LOG_FILE" "s3://\$BUCKET_NAME/\$S3_KEY"
+  aws s3 cp "\$LOG_FILE" "s3://$BUCKET_NAME/\$S3_KEY"
 else
   echo "Log file not found: \$LOG_FILE"
 fi
@@ -66,9 +75,6 @@ EOF
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
-
-# Auto-shutdown after 10 minutes
-nohup sudo shutdown -h +10 &
 
 exit 0
 

@@ -88,14 +88,31 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: terraform
 
-      - name: Terraform Destroy
-        if: env.ACTION == 'destroy'
-        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
-        working-directory: terraform
-
       - name: Debug Terraform Outputs
         if: env.ACTION == 'apply'
         run: terraform output
+        working-directory: terraform
+
+      - name: Upload stage config JSON to S3
+        if: env.ACTION == 'apply'
+        run: |
+          echo "📦 Uploading stage config to S3..."
+
+          CONFIG_FILE="scripts/config/${STAGE_LOWER}.json"
+
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "❌ Missing $CONFIG_FILE"
+            exit 1
+          fi
+
+          BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+          aws s3 cp "$CONFIG_FILE" "s3://$BUCKET_NAME/config/${STAGE_LOWER}.json"
+
+        working-directory: .
+
+      - name: Terraform Destroy
+        if: env.ACTION == 'destroy'
+        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
         working-directory: terraform
 
       - name: Get EC2 Public IP
