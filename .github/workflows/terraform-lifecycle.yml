@@ -98,12 +98,7 @@ jobs:
         if: env.ACTION == 'apply'
         run: |
           set -e
-          RAW_OUTPUT=$(terraform output s3_bucket_name)
-          if [[ -z "$RAW_OUTPUT" ]]; then
-            echo "❌ Failed to get s3_bucket_name output"
-            exit 1
-          fi
-          BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '[a-zA-Z0-9.-]{3,255}' | head -n1 | tr -d '\n\r\t ')
+          BUCKET_NAME=$(terraform output -raw s3_bucket_name)
           echo "BUCKET_NAME=$BUCKET_NAME"
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
           echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
