@@ -104,26 +104,23 @@ jobs:
         working-directory: terraform
         run: |
           set -e
-          set -x       # ← shell tracing
 
-          echo "→ pwd: $(pwd)"
-          echo "→ which terraform: $(which terraform)"
+          # 1) capture the verbose Terraform output
+          RAW_OUTPUT=$(terraform output s3_bucket_name 2>/dev/null)
 
-          # Fetch raw output from Terraform
-          RAW=$(terraform output -raw s3_bucket_name 2>/dev/null)
-          echo "→ raw Terraform output: '$RAW'"
+          # 2) pull out the first quoted string and strip the quotes
+          BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '"[^"]+"' | head -n1 | tr -d '"' )
 
-          BUCKET_NAME=$(echo "$RAW" | head -n1 | tr -d '" \n\r\t')
-          echo "→ cleaned BUCKET_NAME: '$BUCKET_NAME'"
-
+          # 3) sanity check
           if [[ -z "$BUCKET_NAME" ]]; then
-            echo "❌ Bucket name is empty. Check terraform output or resource definition."
-            terraform output || true
+            echo "❌ No bucket name found. Raw output was:"
+            echo "$RAW_OUTPUT"
             exit 1
           fi
 
-          # Export to future steps
-          echo "BUCKET_NAME=$BUCKET_NAME"
+          echo "✔️ Found bucket: $BUCKET_NAME"
+
+          # 4) export for later steps
           echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
