@@ -105,30 +105,24 @@ jobs:
         run: |
           set -e
 
-          # Get raw output
-          RAW_OUTPUT=$(terraform output s3_bucket_name)
+          # Get clean raw output
+            BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null | head -n 1 | tr -d '" \n\r\t')
+            
+            # Fail if still empty
+            if [[ -z "$BUCKET_NAME" ]]; then
+              echo "❌ Bucket name is empty. Check terraform output or resource definition."
+              terraform output || true
+              exit 1
+            fi
+            
+            # Export to GitHub env & output
+            echo "BUCKET_NAME=$BUCKET_NAME"
+            echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_ENV"
+            echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
 
-          # Clean up quotes and whitespace
-          BUCKET_NAME=$(echo "$RAW_OUTPUT" | tr -d '" \n\r\t')
-
-          # Fail if still empty
-          if [[ -z "$BUCKET_NAME" ]]; then
-            echo "❌ Bucket name is empty. Check terraform output or resource definition."
-            terraform output || true
-            exit 1
-          fi
-
-          # Export to GitHub env & output
-          echo "BUCKET_NAME=$BUCKET_NAME"
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
-          echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$BUCKET_NAME" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
         working-directory: terraform
-
-      - name: 🪣 Debug S3 Bucket Name
-        if: env.ACTION == 'apply'
-        run: echo "✅ Resolved Bucket= ${{ steps.get_bucket.outputs.bucket_name }}"
 
       - name: 📤 Upload Stage Config to S3
         if: env.ACTION == 'apply'
