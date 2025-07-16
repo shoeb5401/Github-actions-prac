@@ -98,34 +98,38 @@ jobs:
           terraform output -raw s3_bucket_name
         working-directory: terraform
 
-      # GET s3 bucket name.
       - name: 🪣 Get S3 Bucket Name
         id: get_bucket
         if: env.ACTION == 'apply'
+        working-directory: terraform
         run: |
           set -e
+          set -x       # ← shell tracing
 
-          # Get clean raw output
-            BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null | head -n 1 | tr -d '" \n\r\t')
-            
-            # Fail if still empty
-            if [[ -z "$BUCKET_NAME" ]]; then
-              echo "❌ Bucket name is empty. Check terraform output or resource definition."
-              terraform output || true
-              exit 1
-            fi
-            
-            # Export to GitHub env & output
-            echo "BUCKET_NAME=$BUCKET_NAME"
-            echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_ENV"
-            echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$BUCKET_NAME" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "→ pwd: $(pwd)"
+          echo "→ which terraform: $(which terraform)"
 
-        working-directory: terraform
+          # Fetch raw output from Terraform
+          RAW=$(terraform output -raw s3_bucket_name 2>/dev/null)
+          echo "→ raw Terraform output: '$RAW'"
+
+          BUCKET_NAME=$(echo "$RAW" | head -n1 | tr -d '" \n\r\t')
+          echo "→ cleaned BUCKET_NAME: '$BUCKET_NAME'"
+
+          if [[ -z "$BUCKET_NAME" ]]; then
+            echo "❌ Bucket name is empty. Check terraform output or resource definition."
+            terraform output || true
+            exit 1
+          fi
+
+          # Export to future steps
+          echo "BUCKET_NAME=$BUCKET_NAME"
+          echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
       - name: 📤 Upload Stage Config to S3
         if: env.ACTION == 'apply'
+        working-directory: .
         run: |
           echo "📦 Uploading stage config to S3..."
           CONFIG_FILE="scripts/config/${STAGE_LOWER}.json"
@@ -134,7 +138,6 @@ jobs:
             exit 1
           fi
           aws s3 cp "$CONFIG_FILE" "s3://${{ steps.get_bucket.outputs.bucket_name }}/config/${STAGE_LOWER}.json"
-        working-directory: .
 
       - name: 🌐 Get EC2 Public IP
         id: ec2_ip
