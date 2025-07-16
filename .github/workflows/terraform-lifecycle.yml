@@ -21,7 +21,7 @@ on:
 
 jobs:
   terraform:
-    name: Terraform Lifecycle
+    name: 🚀 Terraform Lifecycle
     runs-on: ubuntu-latest
 
     env:
@@ -30,10 +30,10 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
-      - name: Checkout Repository
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Stage and Action from Inputs or Tag
+      - name: 🔧 Set Stage and Action from Inputs or Tag
         id: set_vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -51,19 +51,19 @@ jobs:
             echo "ACTION=apply" >> $GITHUB_ENV
           fi
 
-      - name: Normalize STAGE to lowercase for filenames
+      - name: 🔤 Normalize STAGE to lowercase
         run: echo "STAGE_LOWER=$(echo $STAGE | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Set up Terraform
+      - name: 🛠️ Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
 
-      - name: Terraform Init
+      - name: ⚙️ Terraform Init
         run: terraform init -backend-config="backend-${STAGE_LOWER}.config"
         working-directory: terraform
 
-      - name: Terraform Workspace Select or Create
+      - name: 🧩 Terraform Workspace Select or Create
         run: |
           terraform workspace list
           if terraform workspace list | grep -qw "${STAGE}"; then
@@ -73,7 +73,7 @@ jobs:
           fi
         working-directory: terraform
 
-      - name: Terraform Validate and Plan
+      - name: 📝 Terraform Validate and Plan
         run: |
           terraform validate
           if [ "${ACTION}" = "destroy" ]; then
@@ -83,20 +83,25 @@ jobs:
           fi
         working-directory: terraform
 
-      - name: Terraform Apply
+      - name: 🚀 Terraform Apply
         if: env.ACTION == 'apply'
         run: terraform apply -auto-approve tfplan
         working-directory: terraform
 
-      - name: Get S3 Bucket Name
+      - name: 🧪 Debug Terraform Outputs
+        if: env.ACTION == 'apply'
+        run: terraform output
+        working-directory: terraform
+
+      - name: 🪣 Get S3 Bucket Name
         id: get_bucket
         if: env.ACTION == 'apply'
         run: |
           set -e
           RAW_OUTPUT=$(terraform output s3_bucket_name)
           if [[ -z "$RAW_OUTPUT" ]]; then
-              echo "❌ Failed to get s3_bucket_name output"
-              exit 1
+            echo "❌ Failed to get s3_bucket_name output"
+            exit 1
           fi
           BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '[a-zA-Z0-9.-]{3,255}' | head -n1 | tr -d '\n\r\t ')
           echo "BUCKET_NAME=$BUCKET_NAME"
@@ -106,33 +111,23 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         working-directory: terraform
 
-      - name: Debug S3 Bucket Name
+      - name: 🪣 Debug S3 Bucket Name
         if: env.ACTION == 'apply'
         run: echo "✅ Resolved Bucket= ${{ steps.get_bucket.outputs.bucket_name }}"
 
-      - name: Debug Terraform Outputs
-        if: env.ACTION == 'apply'
-        run: terraform output
-        working-directory: terraform
-
-      - name: Upload stage config JSON to S3
+      - name: 📤 Upload Stage Config to S3
         if: env.ACTION == 'apply'
         run: |
           echo "📦 Uploading stage config to S3..."
-
           CONFIG_FILE="scripts/config/${STAGE_LOWER}.json"
-
           if [ ! -f "$CONFIG_FILE" ]; then
             echo "❌ Missing $CONFIG_FILE"
             exit 1
           fi
-
-
           aws s3 cp "$CONFIG_FILE" "s3://${{ steps.get_bucket.outputs.bucket_name }}/config/${STAGE_LOWER}.json"
-
         working-directory: .
 
-      - name: Get EC2 Public IP
+      - name: 🌐 Get EC2 Public IP
         id: ec2_ip
         if: env.ACTION == 'apply'
         working-directory: terraform
@@ -147,13 +142,12 @@ jobs:
           echo "$EC2_IP" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Get Private Key Path
+      - name: 🔑 Get Private Key Path
         id: get_key
         if: env.ACTION == 'apply'
         run: |
           set -e
           RAW_OUTPUT=$(terraform output private_key_file)
-          # Extract and clean the key path (remove newlines, quotes, and whitespace)
           KEY_PATH=$(echo "$RAW_OUTPUT" | grep -oE '[^" ]+\.pem' | head -n1 | tr -d '\n\r\t ')
           echo "KEY_PATH=$KEY_PATH"
           echo "key_path=$KEY_PATH" >> $GITHUB_ENV
@@ -162,7 +156,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         working-directory: terraform
 
-      - name: SSH and Tail Logs
+      - name: 🖥️ SSH and Tail Logs
         if: env.ACTION == 'apply'
         continue-on-error: true
         working-directory: terraform
@@ -171,7 +165,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} \
           "timeout 170 tail -f /home/ubuntu/script.log || true"
 
-      - name: Wait for port 80 to be available
+      - name: 🌐 Wait for Port 80 (App Health Check)
         if: env.ACTION == 'apply'
         env:
           EC2_IP: ${{ steps.ec2_ip.outputs.ec2_ip }}
@@ -211,7 +205,7 @@ jobs:
           echo "❌ Failed: App not reachable after $MAX_ATTEMPTS attempts"
           exit 1
 
-      - name: Terraform Destroy
+      - name: 💣 Terraform Destroy
         if: env.ACTION == 'destroy'
         run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars" | grep -E "Destroying|Destroy complete|Apply complete|Still destroying"
         working-directory: terraform
