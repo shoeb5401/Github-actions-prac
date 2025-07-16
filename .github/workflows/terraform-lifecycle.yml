@@ -92,13 +92,19 @@ jobs:
         if: env.ACTION == 'apply'
         run: terraform output
         working-directory: terraform
+
+      - name: Debug Raw Bucket Output
+        run: |
+          terraform output s3_bucket_name
+        working-directory: terraform
+
       # GET s3 bucket name.
       - name: 🪣 Get S3 Bucket Name
         id: get_bucket
         if: env.ACTION == 'apply'
         run: |
           set -e
-          RAW_OUTPUT=$(terraform output s3_bucket_name || true)
+          RAW_OUTPUT=$(terraform output -raw s3_bucket_name )
           BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '^[a-z0-9.-]{3,255}$' | head -n1 | tr -d '\n\r\t ')
           echo "BUCKET_NAME=$BUCKET_NAME"
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
