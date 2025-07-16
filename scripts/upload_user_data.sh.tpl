@@ -25,7 +25,7 @@ mvn clean package
 cd target
 
 # Download stage-specific runtime config from S3
-CONFIG_PATH="config/${stage}.json"
+CONFIG_PATH="${CONFIG_PATH}"
 LOCAL_CONFIG="/home/ubuntu/app-config.json"
 aws s3 cp "s3://${s3_bucket_name}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
 

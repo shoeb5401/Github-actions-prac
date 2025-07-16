@@ -35,7 +35,8 @@ resource "aws_instance" "writeonly_instance" {
  user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ 
   s3_bucket_name = var.s3_bucket_name,
   stage= lower(var.stage),
-  STAGE = var.stage
+  STAGE = var.stage,
+  CONFIG_PATH    = "config/${lower(var.stage)}.json"
    })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name
@@ -198,7 +199,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "log_lifecycle" {
     }
 
     filter {
-      prefix = "app/logs/"
+      prefix = "logs/"
     }
   }
 }
