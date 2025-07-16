@@ -25,7 +25,7 @@ mvn clean package
 cd target
 
 # Download stage-specific runtime config from S3
-BUCKET="${s3_bucket_name}"
+BUCKET=${BUCKET}
 CONFIG_PATH="${CONFIG_PATH}"
 LOCAL_CONFIG="${LOCAL_CONFIG}"
 aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"

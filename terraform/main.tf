@@ -36,6 +36,7 @@ resource "aws_instance" "writeonly_instance" {
   s3_bucket_name = var.s3_bucket_name,
   stage= lower(var.stage),
   STAGE = var.stage,
+  BUCKET=var.s3_bucket_name,
   CONFIG_PATH    = "config/${lower(var.stage)}.json",
   LOCAL_CONFIG = "/home/ubuntu/app-config.json"
    })
