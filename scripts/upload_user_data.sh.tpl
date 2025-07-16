@@ -3,8 +3,7 @@
 exec > /home/ubuntu/script.log 2>&1
 set -x
 
-# Auto-shutdown after 2 minutes
-nohup sudo shutdown -h +2 &
+
 
 # Install dependencies
 sudo apt update && sudo apt upgrade -y
@@ -76,6 +75,9 @@ EOF
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
+
+# Auto-shutdown after 1 minutes
+# nohup sudo shutdown -h +1 &
 
 exit 0
 

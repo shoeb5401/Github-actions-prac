@@ -93,11 +93,6 @@ jobs:
         run: terraform output
         working-directory: terraform
 
-      - name: Debug Raw Bucket Output
-        run: |
-          terraform output -raw s3_bucket_name
-        working-directory: terraform
-
       - name: 🪣 Get S3 Bucket Name
         id: get_bucket
         if: env.ACTION == 'apply'
@@ -218,3 +213,9 @@ jobs:
         if: env.ACTION == 'destroy'
         run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars" | grep -E "Destroying|Destroy complete|Apply complete|Still destroying"
         working-directory: terraform
+
+      - name: 💣 Trigger Shutdown Remotely
+        if: env.ACTION == 'apply'
+        run: |
+          echo "Triggering EC2 shutdown..."
+          ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} "sudo shutdown -h +1"
