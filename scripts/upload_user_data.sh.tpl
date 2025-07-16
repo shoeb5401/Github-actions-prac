@@ -25,9 +25,10 @@ mvn clean package
 cd target
 
 # Download stage-specific runtime config from S3
+BUCKET=${s3_bucket_name}
 CONFIG_PATH="${CONFIG_PATH}"
-LOCAL_CONFIG="/home/ubuntu/app-config.json"
-aws s3 cp "s3://${s3_bucket_name}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
+LOCAL_CONFIG="${LOCAL_CONFIG}"
+aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
 
 
 # Run the JAR with logging
