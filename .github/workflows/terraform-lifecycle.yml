@@ -88,6 +88,29 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: terraform
 
+      - name: Get S3 Bucket Name
+        id: get_bucket
+        if: env.ACTION == 'apply'
+        run: |
+          set -e
+          RAW_OUTPUT=$(terraform output s3_bucket_name)
+          if [[ -z "$RAW_OUTPUT" ]]; then
+              echo "❌ Failed to get s3_bucket_name output"
+              exit 1
+          fi
+          BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '[a-zA-Z0-9.-]{3,255}' | head -n1 | tr -d '\n\r\t ')
+          echo "BUCKET_NAME=$BUCKET_NAME"
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
+          echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        working-directory: terraform
+
+
+      - name: Debug S3 Bucket Name
+        if: env.ACTION == 'apply'
+        run: echo "✅ Resolved Bucket: ${{ steps.get_bucket.outputs.bucket_name }}"
+
       - name: Debug Terraform Outputs
         if: env.ACTION == 'apply'
         run: terraform output
@@ -105,12 +128,10 @@ jobs:
             exit 1
           fi
 
-          BUCKET_NAME=$(terraform output -raw s3_bucket_name)
-          aws s3 cp "$CONFIG_FILE" "s3://$BUCKET_NAME/config/${STAGE_LOWER}.json"
+
+          aws s3 cp "$CONFIG_FILE" "s3://${{ steps.get_bucket.outputs.bucket_name }}/config/${STAGE_LOWER}.json"
 
         working-directory: .
-
-      
 
       - name: Get EC2 Public IP
         id: ec2_ip
@@ -142,7 +163,6 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         working-directory: terraform
 
-     
       - name: SSH and Tail Logs
         if: env.ACTION == 'apply'
         continue-on-error: true
