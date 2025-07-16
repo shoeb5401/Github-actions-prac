@@ -32,5 +32,5 @@ output "s3_writeonly_role_arn" {
 }
 
 output "s3_bucket_name" {
-  value = aws_s3_bucket.log_bucket.id
+  value = aws_s3_bucket.log_bucket.bucket
 }
