@@ -214,5 +214,5 @@ jobs:
 
       - name: Terraform Destroy
         if: env.ACTION == 'destroy'
-        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
+        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars" | grep -E "Destroying|Destroy complete|Apply complete|Still destroying"
         working-directory: terraform
