@@ -95,7 +95,7 @@ jobs:
 
       - name: Debug Raw Bucket Output
         run: |
-          terraform output s3_bucket_name
+          terraform output -raw s3_bucket_name
         working-directory: terraform
 
       # GET s3 bucket name.
@@ -104,8 +104,21 @@ jobs:
         if: env.ACTION == 'apply'
         run: |
           set -e
-          RAW_OUTPUT=$(terraform output -raw s3_bucket_name )
-          BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '^[a-z0-9.-]{3,255}$' | head -n1 | tr -d '\n\r\t ')
+
+          # Get raw output
+          RAW_OUTPUT=$(terraform output s3_bucket_name)
+
+          # Clean up quotes and whitespace
+          BUCKET_NAME=$(echo "$RAW_OUTPUT" | tr -d '" \n\r\t')
+
+          # Fail if still empty
+          if [[ -z "$BUCKET_NAME" ]]; then
+            echo "❌ Bucket name is empty. Check terraform output or resource definition."
+            terraform output || true
+            exit 1
+          fi
+
+          # Export to GitHub env & output
           echo "BUCKET_NAME=$BUCKET_NAME"
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
           echo "bucket_name<<EOF" >> "$GITHUB_OUTPUT"
