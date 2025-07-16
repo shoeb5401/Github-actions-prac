@@ -92,7 +92,7 @@ jobs:
         if: env.ACTION == 'apply'
         run: terraform output
         working-directory: terraform
-
+# GET s3 bucket name.
       - name: 🪣 Get S3 Bucket Name
         id: get_bucket
         if: env.ACTION == 'apply'
