@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sleep 10
+
 exec > /home/ubuntu/setup.log 2>&1
 set -x
 

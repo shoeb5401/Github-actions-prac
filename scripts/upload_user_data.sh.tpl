@@ -1,8 +1,8 @@
 #!/bin/bash
 
-sleep 10
 
 exec > /home/ubuntu/script.log 2>&1
+set -e
 set -x
 
 # Accept input variables
@@ -13,7 +13,7 @@ repo_name="${repo_name}"
 s3_bucket_name="${s3_bucket_name}"
 
 # Install dependencies
-# sudo apt update && sudo apt upgrade -y
+sudo apt update && sudo apt upgrade -y
 sudo apt install -y openjdk-21-jdk maven unzip
 
 # Install AWS CLI v2
@@ -28,10 +28,10 @@ cd /home/ubuntu
 
 if [ "$stage" = "Prod" ]; then
   echo "🔐 Cloning from private repo..."
-  git clone https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git config-repo
+  git clone "https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git" config-repo
 else
   echo "🌐 Cloning from public repo..."
-  git clone https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git config-repo
+  git clone "https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git" config-repo
 fi
 
 # Clone and build app
@@ -41,7 +41,7 @@ mvn clean package
 cd target
 
 # Copy stage-specific config from config-repo
-cp /home/ubuntu/config-repo/application-${stage}.yml /home/ubuntu/app-config.yml
+cp "/home/ubuntu/config-repo/application-${stage}.yml" "/home/ubuntu/app-config.yml"
 
 # Run the JAR with 
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
@@ -49,7 +49,7 @@ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
   --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
 
 # Create shutdown upload script
-cat <<'EOF' | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
+sudo tee /usr/local/bin/upload-script-log.sh > /dev/null <<EOF
 #!/bin/bash
 exec >> /var/log/upload-to-s3.log 2>&1
 set -e
@@ -60,6 +60,7 @@ LOG_FILE="/home/ubuntu/script.log"
 S3_KEY="logs/\${stage}/script.log"
 
 if [ -f "\$LOG_FILE" ]; then
+  sleep 5
   aws s3 cp "\$LOG_FILE" "s3://\$BUCKET_NAME/\$S3_KEY"
 else
   echo "Log file not found: \$LOG_FILE"
@@ -69,7 +70,7 @@ EOF
 sudo chmod +x /usr/local/bin/upload-script-log.sh
 
 # Create systemd shutdown service
-cat <<EOF | sudo tee /etc/systemd/system/upload-script-log.service > /dev/null
+sudo tee /etc/systemd/system/upload-script-log.service > /dev/null <<EOF
 [Unit]
 Description=Upload script.log to S3 on shutdown
 DefaultDependencies=no
@@ -90,7 +91,11 @@ sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
 
-# Optional auto-shutdown
-# nohup sudo shutdown -h +1 &
 
+# ✅ Upload log immediately after script finishes
+aws s3 cp /home/ubuntu/script.log s3://${s3_bucket_name}/logs/${stage}/script.log || echo "Upload failed"
+
+
+echo "✅ Script completed successfully"
 exit 0
+
