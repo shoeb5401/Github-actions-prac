@@ -7,7 +7,7 @@ set -x
 STAGE="${stage}"
 GH_PAT="${gh_pat}"
 REPO_OWNER="${repo_owner}"
-REPO_NAME="${repo_name}"
+repo_name="${repo_name}"
 S3_BUCKET_NAME="${s3_bucket_name}"
 
 # Install dependencies
@@ -26,10 +26,10 @@ cd /home/ubuntu
 
 if [ "$STAGE" = "Prod" ]; then
   echo "🔐 Cloning from private repo..."
-  git clone https://${gh_pat}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+  git clone https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git config-repo
 else
   echo "🌐 Cloning from public repo..."
-  git clone https://${gh_pat}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+  git clone https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git config-repo
 fi
 
 # Clone and build app
