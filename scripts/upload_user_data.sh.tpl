@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sleep 10
+
 exec > /home/ubuntu/script.log 2>&1
 set -x
 

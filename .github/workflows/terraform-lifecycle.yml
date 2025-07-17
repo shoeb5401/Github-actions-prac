@@ -190,7 +190,7 @@ jobs:
 
       - name: 💣 Terraform Destroy
         if: env.ACTION == 'destroy'
-        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars" | grep -E "Destroying|Destroy complete|Apply complete|Still destroying"
+        run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
         working-directory: terraform
 
       - name: 💣 Trigger Shutdown Remotely
