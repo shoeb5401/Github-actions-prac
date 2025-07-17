@@ -1,12 +1,13 @@
 terraform {
   backend "s3" {
- # bucket, key, and region will be injected via -backend-config
+    # bucket, key, and region will be injected via -backend-config
   }
 }
 
 provider "aws" {
   region = var.region
 }
+
 # Generate SSH Key Pair
 resource "tls_private_key" "assignment" {
   algorithm = "RSA"
@@ -18,7 +19,6 @@ resource "local_file" "private_key" {
   filename        = "${path.module}/${var.key_name}.pem"
   file_permission = "0400"
 }
-
 
 resource "aws_key_pair" "assignment" {
   key_name   = var.key_name
@@ -32,17 +32,16 @@ resource "aws_instance" "writeonly_instance" {
   key_name      = aws_key_pair.assignment.key_name
   security_groups = [aws_security_group.ssh_restricted.name]
  
- user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ 
-  s3_bucket_name = var.s3_bucket_name,
-  stage = lower(var.stage),
-  gh_pat = var.gh_pat,
-  repo_owner = var.repo_owner,
-  repo_name = var.repo_name,
-  
-   })
+  user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl", {
+    s3_bucket_name = var.s3_bucket_name,
+    stage = lower(var.stage),
+    gh_pat = var.gh_pat,
+    repo_owner = var.repo_owner,
+    repo_name = var.repo_name
+  })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name
-  depends_on = [aws_iam_instance_profile.writeonly_profile,aws_s3_bucket.log_bucket]
+  depends_on = [aws_iam_instance_profile.writeonly_profile, aws_s3_bucket.log_bucket]
 
   root_block_device {
     volume_size = var.volume_size
@@ -50,9 +49,9 @@ resource "aws_instance" "writeonly_instance" {
   }
 
   tags = {
-    Name = "${var.stage}-writeonly-instance"
-    Role = "writeonly"
-  Stage = var.stage
+    Name  = "${var.stage}-writeonly-instance"
+    Role  = "writeonly"
+    Stage = var.stage
   }
 }
 
@@ -62,21 +61,25 @@ resource "aws_instance" "readonly_instance" {
   key_name      = aws_key_pair.assignment.key_name
   security_groups = [aws_security_group.ssh_restricted.name]
   iam_instance_profile = aws_iam_instance_profile.readonly_profile.name
-  depends_on = [aws_iam_instance_profile.readonly_profile,aws_s3_bucket.log_bucket]
-  user_data = templatefile("${path.module}/../scripts/download_user_data.sh.tpl", {s3_bucket_name = var.s3_bucket_name,
-  stage = lower(var.stage)
+  depends_on = [aws_iam_instance_profile.readonly_profile, aws_s3_bucket.log_bucket]
+  
+  user_data = templatefile("${path.module}/../scripts/download_user_data.sh.tpl", {
+    s3_bucket_name = var.s3_bucket_name,
+    stage = lower(var.stage)
   })
+  
   root_block_device {
     volume_size = var.volume_size
     volume_type = "gp3"
   }
 
   tags = {
-    Name = "${var.stage}-readonly-instance"
-    Role = "readonly"
-  Stage = var.stage
+    Name  = "${var.stage}-readonly-instance"
+    Role  = "readonly"
+    Stage = var.stage
   }
 }
+
 # Security Group
 resource "aws_security_group" "ssh_restricted" {
   name        = "ssh-from-my-ip"
@@ -90,24 +93,23 @@ resource "aws_security_group" "ssh_restricted" {
     cidr_blocks = [var.my_ip]
   }
 
+  ingress {
+    description = "Access Server from Outside"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  ingress {
-  description = "Access Server from Outside"
-  from_port   = 80
-  to_port     = 80
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
 }
 
-}
-
-# IAM Role for S3 Write-Only Access 
+# IAM Role for S3 Read-Only Access 
 resource "aws_iam_role" "s3_readonly_role" {
   name = var.s3_readonly_role_name
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
@@ -147,15 +149,20 @@ data "aws_iam_policy_document" "assume_ec2" {
 data "aws_iam_policy_document" "s3_readonly" {
   statement {
     actions   = ["s3:ListBucket", "s3:GetObject"]
-    resources = ["arn:aws:s3:::*", "arn:aws:s3:::*/*"]
+    resources = [
+      aws_s3_bucket.log_bucket.arn,
+      "${aws_s3_bucket.log_bucket.arn}/*"
+    ]
   }
 }
 
 # S3 WriteOnly Policy
 data "aws_iam_policy_document" "s3_writeonly" {
   statement {
-    actions   = ["s3:PutObject", "s3:CreateBucket"]
-    resources = ["arn:aws:s3:::*", "arn:aws:s3:::*/*"]
+    actions   = ["s3:PutObject"]
+    resources = [
+      "${aws_s3_bucket.log_bucket.arn}/*"
+    ]
   }
 
   statement {
@@ -164,21 +171,25 @@ data "aws_iam_policy_document" "s3_writeonly" {
       "s3:GetObject",
       "s3:ListBucket"
     ]
-    resources = ["arn:aws:s3:::*", "arn:aws:s3:::*/*"]
+    resources = [
+      aws_s3_bucket.log_bucket.arn,
+      "${aws_s3_bucket.log_bucket.arn}/*"
+    ]
   }
 }
-
 
 # IAM Instance Profile for Write-Only Role
 resource "aws_iam_instance_profile" "writeonly_profile" {
   name = "${var.stage}-writeonly-profile"
   role = aws_iam_role.s3_writeonly_role.name
 }
+
 # IAM Instance Profile for Read-only Role
 resource "aws_iam_instance_profile" "readonly_profile" {
   name = "${var.stage}-readonly-profile"
   role = aws_iam_role.s3_readonly_role.name
 }
+
 # Private S3 Bucket
 resource "aws_s3_bucket" "log_bucket" {
   bucket = var.s3_bucket_name
@@ -186,8 +197,7 @@ resource "aws_s3_bucket" "log_bucket" {
   tags = {
     Environment = var.stage
   }
-    force_destroy = true  # Optional: only for auto-cleanup during destroy
-
+  force_destroy = true  # Optional: only for auto-cleanup during destroy
 }
 
 # S3 Bucket Lifecycle Configuration
@@ -207,7 +217,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "log_lifecycle" {
     }
   }
 }
-
 
 resource "aws_s3_bucket_public_access_block" "block_public" {
   bucket = aws_s3_bucket.log_bucket.id
