@@ -110,44 +110,6 @@ jobs:
         run: terraform output
         working-directory: terraform
 
-      - name: 🪣 Get S3 Bucket Name
-        id: get_bucket
-        if: env.ACTION == 'apply'
-        working-directory: terraform
-        run: |
-          set -e
-
-          # 1) capture the verbose Terraform output
-          RAW_OUTPUT=$(terraform output s3_bucket_name 2>/dev/null)
-
-          # 2) pull out the first quoted string and strip the quotes
-          BUCKET_NAME=$(echo "$RAW_OUTPUT" | grep -oE '"[^"]+"' | head -n1 | tr -d '"' )
-
-          # 3) sanity check
-          if [[ -z "$BUCKET_NAME" ]]; then
-            echo "❌ No bucket name found. Raw output was:"
-            echo "$RAW_OUTPUT"
-            exit 1
-          fi
-
-          echo "✔️ Found bucket: $BUCKET_NAME"
-
-          # 4) export for later steps
-          echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
-
-      - name: 📤 Upload Stage Config to S3
-        if: env.ACTION == 'apply'
-        working-directory: .
-        run: |
-          echo "📦 Uploading stage config to S3..."
-          CONFIG_FILE="scripts/config/application-${STAGE_LOWER}.yml"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "❌ Missing $CONFIG_FILE"
-            exit 1
-          fi
-          aws s3 cp "$CONFIG_FILE" "s3://${{ steps.get_bucket.outputs.bucket_name }}/config/application-${STAGE_LOWER}.yml"
-
       - name: 🌐 Get EC2 Public IP
         id: ec2_ip
         if: env.ACTION == 'apply'
