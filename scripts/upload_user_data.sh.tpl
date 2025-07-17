@@ -47,7 +47,7 @@ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
   --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
 
 # Create shutdown upload script
-cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
+cat <<'EOF' | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
 #!/bin/bash
 exec >> /var/log/upload-to-s3.log 2>&1
 set -e

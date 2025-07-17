@@ -16,9 +16,8 @@ sleep 150
 s3_bucket_name="${s3_bucket_name}"
 stage="${stage}"
 
-# fail early if vars missing
 if [ -z "$stage" ] || [ -z "$s3_bucket_name" ]; then
-  echo "❌ stage or bucket_name is empty (stage='$stage', bucket_name='$s3_bucket_name')" >&2
+  echo "❌ stage or s3_bucket_name is empty (stage='$stage', s3_bucket_name='$s3_bucket_name')" >&2
   exit 1
 fi
 
