@@ -16,6 +16,12 @@ sudo ./aws/install
 aws --version
 rm -rf awscliv2.zip ./aws/
 
+# Download stage-specific runtime config from S3
+BUCKET=${BUCKET}
+CONFIG_PATH="${CONFIG_PATH}"
+LOCAL_CONFIG="${LOCAL_CONFIG}"
+aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
+
 # Clone and build app
 cd /home/ubuntu
 git clone https://github.com/techeazy-consulting/techeazy-devops.git
@@ -23,15 +29,8 @@ cd techeazy-devops
 mvn clean package
 cd target
 
-# Download stage-specific runtime config from S3
-BUCKET=${BUCKET}
-CONFIG_PATH="${CONFIG_PATH}"
-LOCAL_CONFIG="${LOCAL_CONFIG}"
-aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
-
-
 # Run the JAR with logging
- nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.profiles.active=${stage} --spring.config.location="${LOCAL_CONFIG}" &
+ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.profiles.active=${stage} --spring.config.additional-location="file:${LOCAL_CONFIG}" &
 
 # Create shutdown upload script
 cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
