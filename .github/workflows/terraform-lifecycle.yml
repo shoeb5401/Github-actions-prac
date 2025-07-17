@@ -29,8 +29,7 @@ jobs:
 
       - name: 🔧 Set Stage & Action
         id: set_vars
-        outputs:
-          stage: ${{ steps.set_vars.outputs.stage }}
+        
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "STAGE=${{ github.event.inputs.stage }}" >> $GITHUB_ENV
