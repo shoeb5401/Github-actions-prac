@@ -193,3 +193,4 @@ jobs:
         run: |
           echo "Triggering EC2 shutdown..."
           ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} "sudo shutdown -h +1"
+        working-directory: terraform

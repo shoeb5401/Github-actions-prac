@@ -1,6 +1,6 @@
 # 📘 DevOps EC2 Automation with Terraform (GitHub Actions Enabled)
 
-This project provides a fully automated infrastructure deployment pipeline using **Terraform** and **GitHub Actions**. It provisions AWS EC2 instances, configures IAM roles, uploads logs to S3, and ensures application health using port checks.
+This project provides a fully automated infrastructure deployment pipeline using **Terraform** and **GitHub Actions**. It provisions AWS EC2 instances, configures IAM roles, uploads logs to S3, fetches environment-based config files, and ensures application health using port checks.
 
 ---
 
@@ -10,19 +10,25 @@ This project provides a fully automated infrastructure deployment pipeline using
 .
 ├── backend/
 │   └── techeazy-devops-0.0.1-SNAPSHOT.jar     # Spring Boot JAR
+├── config/
+│   ├── application-dev.yml                   # Dev application config
+│   └── application-prod.yml                  # Prod application config
 ├── scripts/
-│   ├── upload_user_data.sh.tpl                # Write-only bootstrap
-│   └── download_user_data.sh.tpl              # Read-only bootstrap
+│   ├── upload_user_data.sh.tpl               # Write-only bootstrap
+│   └── download_user_data.sh.tpl             # Read-only bootstrap
 ├── terraform/
-│   ├── deploy.sh                              # Bash deploy script
-│   ├── dev_config.tfvars                      # Dev config
-│   ├── prod_config.tfvars                     # Prod config
-│   ├── main.tf                                # Resources definition
-│   ├── outputs.tf                             # Outputs
-│   ├── variables.tf                           # Variable definitions
-│   └── *.tfstate                              # Auto-generated state files
-├── .github/workflows/
-│   └── terraform-lifecycle.yml                # GitHub Actions workflow
+│   ├── backend-dev.config                    # Dev backend config for state
+│   ├── backend-prod.config                   # Prod backend config for state
+│   ├── deploy.sh                             # Bash deploy script
+│   ├── dev_config.tfvars                     # Dev config variables
+│   ├── prod_config.tfvars                    # Prod config variables
+│   ├── main.tf                               # Resources definition
+│   ├── outputs.tf                            # Outputs
+│   └── variables.tf                          # Variable definitions
+├── .github/
+│   └── workflows/
+│       └── terraform-lifecycle.yml           # GitHub Actions workflow
+├── .gitignore
 └── README.md
 ```
 
@@ -30,13 +36,16 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ## 🔧 Key Features
 
-- 🌍 **Multi-Environment Deployments**: Supports `Dev` and `Prod`
+- 🌍 **Multi-Environment Deployments**: Dev & Prod support
 - 🔐 **Secure SSH Key Generation**
-- ☁️ **S3 Logging Lifecycle Policy (7 days retention)**
+- ☁️ **S3 Logging with Stage-Specific Folder Paths**
+- 🛠️ **Config Separation per Stage** (`application-dev.yml`, `application-prod.yml`)
+- 🌐 **Fetch Runtime Configs from GitHub (Public/Private)**
+- 🔑 **GitHub Token Handling for Private Repos**
 - 📡 **EC2 Health Checks via GitHub Actions**
 - 🛡️ **IAM Role-Based Access Control**
-- 🚦 **Auto Shutdown After 60 Minutes**
-- 🖥️ **Live SSH Log Monitoring**
+- 🕒 **Auto Shutdown After 10 Minutes**
+- 🖥️ **Live SSH Log Monitoring via CI**
 
 ---
 
@@ -52,22 +61,31 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ### Workflow Behavior
 
-1. Detects stage (Dev/Prod) and action (apply/destroy)
-2. Initializes Terraform with workspace logic
-3. Validates and plans based on selected config
+1. Detects stage (`Dev`/`Prod`) and action (`apply`/`destroy`) using inputs or tag
+2. Loads respective `.tfvars` and backend config
+3. Initializes and validates Terraform with correct workspace
 4. Applies or destroys infrastructure
-5. Extracts EC2 public IP and waits for HTTP 200 response on port 80
-6. SSH into the EC2 instance using the generated `.pem` key and runs:
-   - `tail -f /home/ubuntu/script.log`
-   - Exits gracefully and continues workflow
+5. Downloads the correct stage config (`application-dev.yml` or `application-prod.yml`) from a public/private GitHub repo
+6. Provisions EC2 with config passed in
+7. SSH into the EC2 using Terraform-generated key
+8. Executes `tail -f /home/ubuntu/script.log` and exits gracefully
+9. Pushes logs to:
+
+   - `s3://<bucket>/logs/dev/...`
+   - `s3://<bucket>/logs/prod/...`
+
+10. Performs port 80 health check with up to 5 minutes retry
 
 ---
 
 ## 🧰 Prerequisites
 
 - [Terraform CLI](https://developer.hashicorp.com/terraform/downloads)
-- AWS CLI with credentials and profile set
-- Github Secrets with same AWS credentials [AWS_ACCESS_KEY , AWS_SECRET_ACCESS_KEY , AWS_REGION]
+- AWS CLI with configured profile
+- GitHub Secrets:
+
+  - `AWS_ACCESS_KEY`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+  - `GH_PAT` (GitHub Personal Access Token for private repos)
 
 ```bash
 export AWS_SHARED_CREDENTIALS_FILE="/path/to/credentials"
@@ -99,11 +117,13 @@ aws s3api create-bucket \
 **On Launch (Write-Only EC2):**
 
 - Installs JDK, Maven, AWS CLI
-- Clones & builds Spring Boot app
+- Clones Spring Boot repo
+- Downloads the config (`dev` or `prod`) from GitHub
+- Places it under `config/` before running the app
 - Starts JAR with `nohup`
-- Creates a shutdown hook:
+- Adds shutdown logic:
 
-  - Uploads `/home/ubuntu/script.log` to S3
+  - Uploads `/home/ubuntu/script.log` to stage-based S3 folder
   - Shuts down after 10 mins
 
 ---
@@ -112,54 +132,59 @@ aws s3api create-bucket \
 
 ```bash
 aws configure --profile readonly
-aws s3 ls s3://<bucket>/app/logs/
-aws s3 cp s3://<bucket>/app/logs/script.log .
+aws s3 ls s3://<bucket>/logs/dev/
+aws s3 cp s3://<bucket>/logs/dev/script.log .
 ```
 
 ---
 
-## 🔐 SSH Log Monitoring (CI/CD)
+## 🔐 GitHub Config Handling
 
-After infrastructure is deployed via GitHub Actions:
+- **Supports both public and private GitHub repos** for config files
+- Stage determines the access method:
 
-1. The `.pem` SSH private key is extracted from Terraform output
-2. GitHub Actions securely connects to the EC2 instance via SSH
-3. Runs `tail -f /var/log/script.log`
-4. Exit code `124` from timeout is handled gracefully
-5. Port 80 health check continues without interruption
+  - `Dev`: fetches from public repo
+  - `Prod`: requires GitHub PAT from Secrets
 
-No manual intervention is needed. The log monitoring is part of the CI workflow.
+---
+
+## 🖥️ SSH Log Monitoring (CI/CD)
+
+After provisioning:
+
+1. Terraform outputs `.pem` file path
+2. GitHub Actions uses SSH to connect
+3. Monitors `/home/ubuntu/script.log`
+4. Handles timeout exit (code 124) gracefully
 
 ---
 
 ## 📎 Terraform Lifecycle Usage
 
 ```bash
-# From GitHub UI
-# Manually trigger with inputs: stage = Dev or Prod, action = apply/destroy
+# From GitHub UI:
+# Trigger manually with: stage = Dev/Prod, action = apply/destroy
 
-# From terminal (for bash deploy.sh)
+# From terminal:
 cd terraform/
 ./deploy.sh Dev
 ```
 
 ---
 
-## ✅ Tips
+## 🧪 Health Check Logic
 
-- Use `terraform destroy` to tear down resources
-- Set `.pem` key permissions to `0400`
-- Check systemd logs for shutdown log uploads
+- GitHub Actions retrieves EC2 public IP
+- Verifies port 80 using `nc` + `curl`
+- Retries for up to 5 minutes with graceful fail
 
 ---
 
-## 🧪 Health Check Logic
+## ✅ Tips
 
-After apply, GitHub Actions will:
-
-- Extract EC2 public IP from outputs
-- Use `nc` and `curl` to validate port 80
-- Retry for up to 5 minutes
+- Use `terraform destroy -var-file=prod_config.tfvars` to clean up
+- Always set `.pem` permissions to `0400`
+- Check `systemd` logs to verify shutdown upload succeeded
 
 ---
 
