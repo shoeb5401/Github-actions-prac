@@ -61,3 +61,19 @@ variable "s3_bucket_name" {
     error_message = "S3 bucket name must not be empty."
   }
 }
+
+
+variable "gh_pat" {
+  default = "" # default empty; set via CI for Prod
+}
+
+
+variable "repo_owner" {
+  description = "GitHub repo owner"
+  default     = "shoeb5401"
+}
+
+variable "repo_name" {
+  description = "GitHub repo name"
+  default     = "Secure-Repo-Config"
+}

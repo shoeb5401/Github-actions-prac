@@ -21,47 +21,63 @@ on:
 
 jobs:
   terraform:
-    name: 🚀 Terraform Lifecycle
     runs-on: ubuntu-latest
 
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-
     steps:
-      - name: 📥 Checkout Repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🔧 Set Stage and Action from Inputs or Tag
+      - name: 🔧 Set Stage & Action
         id: set_vars
+        outputs:
+          stage: ${{ steps.set_vars.outputs.stage }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "STAGE=${{ github.event.inputs.stage }}" >> $GITHUB_ENV
             echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
+            echo "stage=${{ github.event.inputs.stage }}" >> $GITHUB_OUTPUT
           else
-            ref_name="${GITHUB_REF##*/}"
-            if [[ "$ref_name" == deploy-dev* ]]; then
-              echo "STAGE=Dev" >> $GITHUB_ENV
-            elif [[ "$ref_name" == deploy-prod* ]]; then
+            ref="${GITHUB_REF##*/}"
+            if [[ "$ref" == deploy-prod* ]]; then
               echo "STAGE=Prod" >> $GITHUB_ENV
+              echo "stage=Prod" >> $GITHUB_OUTPUT
             else
               echo "STAGE=Dev" >> $GITHUB_ENV
+              echo "stage=Dev" >> $GITHUB_OUTPUT
             fi
             echo "ACTION=apply" >> $GITHUB_ENV
           fi
 
-      - name: 🔤 Normalize STAGE to lowercase
-        run: echo "STAGE_LOWER=$(echo $STAGE | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: 🔐 Export GH_PAT for Prod
+        run: |
+          if [ "${{ steps.set_vars.outputs.stage }}" = "Prod" ]; then
+            echo "TF_VAR_gh_pat=${{ secrets.GH_PAT }}" >> $GITHUB_ENV
+          else
+            echo "TF_VAR_gh_pat=" >> $GITHUB_ENV
+          fi
 
-      - name: 🛠️ Set up Terraform
+      - name: 🔤 Normalize Stage & Export TF_VARS
+        run: |
+          STAGE_LOWER=$(echo $STAGE | tr '[:upper:]' '[:lower:]')
+          echo "STAGE_LOWER=$STAGE_LOWER" >> $GITHUB_ENV
+          echo "TF_VAR_stage=$STAGE_LOWER"    >> $GITHUB_ENV
+          echo "TF_VAR_repo_owner=shoeb5401"  >> $GITHUB_ENV
+          echo "TF_VAR_repo_name=Secure-Repo-Config" >> $GITHUB_ENV
+
+      - name: 🛠️ Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
 
       - name: ⚙️ Terraform Init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: terraform init -backend-config="backend-${STAGE_LOWER}.config"
         working-directory: terraform
+
+      
 
       - name: 🧩 Terraform Workspace Select or Create
         run: |
@@ -167,7 +183,7 @@ jobs:
         run: |
           chmod 400 "${{ env.key_path }}"
           ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} \
-          "timeout 170 tail -f /home/ubuntu/script.log || true"
+          "timeout 170 tail -f /home/ubuntu/script.log || true || echo "⚠️ No logs yet or connection failed. Proceeding..."
 
       - name: 🌐 Wait for Port 80 (App Health Check)
         if: env.ACTION == 'apply'

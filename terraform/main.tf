@@ -35,10 +35,10 @@ resource "aws_instance" "writeonly_instance" {
  user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ 
   s3_bucket_name = var.s3_bucket_name,
   stage= lower(var.stage),
-  STAGE = var.stage,
-  BUCKET=var.s3_bucket_name,
-  CONFIG_PATH    = "config/application-${lower(var.stage)}.yml",
-  LOCAL_CONFIG = "/home/ubuntu/application-${lower(var.stage)}.yml"
+  gh_pat      = var.gh_pat,
+  repo_owner  = var.repo_owner,
+  repo_name   = var.repo_name,
+  
    })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name

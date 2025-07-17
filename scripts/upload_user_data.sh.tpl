@@ -3,7 +3,12 @@
 exec > /home/ubuntu/script.log 2>&1
 set -x
 
-
+# Accept input variables
+STAGE="${stage}"
+GH_PAT="${gh_pat}"
+REPO_OWNER="${repo_owner}"
+REPO_NAME="${repo_name}"
+S3_BUCKET_NAME="${s3_bucket_name}"
 
 # Install dependencies
 sudo apt update && sudo apt upgrade -y
@@ -16,21 +21,30 @@ sudo ./aws/install
 aws --version
 rm -rf awscliv2.zip ./aws/
 
-# Download stage-specific runtime config from S3
-BUCKET=${BUCKET}
-CONFIG_PATH="${CONFIG_PATH}"
-LOCAL_CONFIG="${LOCAL_CONFIG}"
-aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
+# Clone configuration repo
+cd /home/ubuntu
+
+if [ "$STAGE" = "Prod" ]; then
+  echo "🔐 Cloning from private repo..."
+  git clone https://${GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+else
+  echo "🌐 Cloning from public repo..."
+  git clone https://${GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+fi
 
 # Clone and build app
-cd /home/ubuntu
 git clone https://github.com/techeazy-consulting/techeazy-devops.git
 cd techeazy-devops
 mvn clean package
 cd target
 
-# Run the JAR with logging
- nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.profiles.active=${stage} --spring.config.additional-location="file:${LOCAL_CONFIG}" &
+# Copy stage-specific config from config-repo
+cp /home/ubuntu/config-repo/application-${STAGE}.yml /home/ubuntu/app-config.yml
+
+# Run the JAR with 
+nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
+  --spring.profiles.active=${STAGE} \
+  --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
 
 # Create shutdown upload script
 cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
@@ -38,19 +52,18 @@ cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
 exec >> /var/log/upload-to-s3.log 2>&1
 set -e
 
-BUCKET_NAME="${s3_bucket_name}"
-STAGE="${stage}"
+BUCKET_NAME="${S3_BUCKET_NAME}"
+STAGE="${STAGE}"
 LOG_FILE="/home/ubuntu/script.log"
-S3_KEY="logs/${STAGE}/script.log"
+S3_KEY="logs/\${STAGE}/script.log"
 
 if [ -f "\$LOG_FILE" ]; then
-  aws s3 cp "\$LOG_FILE" "s3://$BUCKET_NAME/\$S3_KEY"
+  aws s3 cp "\$LOG_FILE" "s3://\$BUCKET_NAME/\$S3_KEY"
 else
   echo "Log file not found: \$LOG_FILE"
 fi
 EOF
 
-# Make the script executable
 sudo chmod +x /usr/local/bin/upload-script-log.sh
 
 # Create systemd shutdown service
@@ -75,8 +88,7 @@ sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
 
-# Auto-shutdown after 1 minutes
+# Optional auto-shutdown
 # nohup sudo shutdown -h +1 &
 
 exit 0
-
