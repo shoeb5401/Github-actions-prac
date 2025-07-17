@@ -22,6 +22,10 @@ on:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
       - name: 📥 Checkout
@@ -29,7 +33,7 @@ jobs:
 
       - name: 🔧 Set Stage & Action
         id: set_vars
-        
+
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "STAGE=${{ github.event.inputs.stage }}" >> $GITHUB_ENV
@@ -75,8 +79,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: terraform init -backend-config="backend-${STAGE_LOWER}.config"
         working-directory: terraform
-
-      
 
       - name: 🧩 Terraform Workspace Select or Create
         run: |
