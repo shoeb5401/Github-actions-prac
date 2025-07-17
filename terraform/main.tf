@@ -37,8 +37,8 @@ resource "aws_instance" "writeonly_instance" {
   stage= lower(var.stage),
   STAGE = var.stage,
   BUCKET=var.s3_bucket_name,
-  CONFIG_PATH    = "config/${lower(var.stage)}.json",
-  LOCAL_CONFIG = "/home/ubuntu/app-config.json"
+  CONFIG_PATH    = "config/application-${lower(var.stage)}.yml",
+  LOCAL_CONFIG = "/home/ubuntu/application-${lower(var.stage)}.yml"
    })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name

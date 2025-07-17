@@ -31,7 +31,7 @@ aws s3 cp "s3://${BUCKET}/${CONFIG_PATH}" "${LOCAL_CONFIG}"
 
 
 # Run the JAR with logging
- nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.config.location="${LOCAL_CONFIG}" --server.port=80 &
+ nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar --spring.profiles.active=${stage} --spring.config.location="${LOCAL_CONFIG}" &
 
 # Create shutdown upload script
 cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null

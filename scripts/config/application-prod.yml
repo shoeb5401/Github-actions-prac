@@ -1,0 +1,5 @@
+stage: prod
+message: "Prod environment Config File"
+maintenance_mode: true
+server:
+  port: 8080

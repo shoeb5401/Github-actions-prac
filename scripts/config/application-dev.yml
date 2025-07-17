@@ -1,0 +1,6 @@
+# application-dev.yml
+stage: dev
+message: "Dev environment Config File"
+maintenance_mode: false
+server:
+  port: 80
