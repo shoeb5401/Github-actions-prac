@@ -51,13 +51,8 @@ jobs:
             echo "ACTION=apply" >> $GITHUB_ENV
           fi
 
-      - name: 🔐 Export GH_PAT for Prod
-        run: |
-          if [ "${{ steps.set_vars.outputs.stage }}" = "Prod" ]; then
-            echo "TF_VAR_gh_pat=${{ secrets.GH_PAT }}" >> $GITHUB_ENV
-          else
-            echo "TF_VAR_gh_pat=" >> $GITHUB_ENV
-          fi
+      - name: 🔐 Export GH_PAT for all environments
+        run: echo "TF_VAR_gh_pat=${{ secrets.GH_PAT }}" >> $GITHUB_ENV
 
       - name: 🔤 Normalize Stage & Export TF_VARS
         run: |

@@ -64,7 +64,8 @@ variable "s3_bucket_name" {
 
 
 variable "gh_pat" {
-  default = "" # default empty; set via CI for Prod
+
+  type = string
 }
 
 

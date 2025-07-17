@@ -25,14 +25,13 @@ rm -rf awscliv2.zip ./aws/
 
 # Clone configuration repo
 cd /home/ubuntu
+echo "GH_PAT length: ${#gh_pat}"
 
-if [ "$stage" = "Prod" ]; then
-  echo "🔐 Cloning from private repo..."
-  git clone "https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git" config-repo
-else
-  echo "🌐 Cloning from public repo..."
-  git clone "https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git" config-repo
-fi
+set +x  # Prevent leaking token
+echo "🔐 Cloning from private repo for stage: $stage"
+git clone "https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git" config-repo
+set -x
+
 
 # Clone and build app
 git clone https://github.com/techeazy-consulting/techeazy-devops.git
