@@ -26,10 +26,10 @@ cd /home/ubuntu
 
 if [ "$STAGE" = "Prod" ]; then
   echo "🔐 Cloning from private repo..."
-  git clone https://${GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+  git clone https://${gh_pat}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
 else
   echo "🌐 Cloning from public repo..."
-  git clone https://${GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
+  git clone https://${gh_pat}@github.com/${REPO_OWNER}/${REPO_NAME}.git config-repo
 fi
 
 # Clone and build app

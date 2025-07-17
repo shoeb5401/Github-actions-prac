@@ -34,10 +34,10 @@ resource "aws_instance" "writeonly_instance" {
  
  user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl",{ 
   s3_bucket_name = var.s3_bucket_name,
-  stage= lower(var.stage),
-  gh_pat      = var.gh_pat,
-  repo_owner  = var.repo_owner,
-  repo_name   = var.repo_name,
+  stage = lower(var.stage),
+  gh_pat = var.gh_pat,
+  repo_owner = var.repo_owner,
+  repo_name = var.repo_name,
   
    })
 
