@@ -4,14 +4,14 @@ exec > /home/ubuntu/script.log 2>&1
 set -x
 
 # Accept input variables
-STAGE="${stage}"
-GH_PAT="${gh_pat}"
-REPO_OWNER="${repo_owner}"
+stage="${stage}"
+gh_pat="${gh_pat}"
+repo_owner="${repo_owner}"
 repo_name="${repo_name}"
-S3_BUCKET_NAME="${s3_bucket_name}"
+s3_bucket_name="${s3_bucket_name}"
 
 # Install dependencies
-sudo apt update && sudo apt upgrade -y
+# sudo apt update && sudo apt upgrade -y
 sudo apt install -y openjdk-21-jdk maven unzip
 
 # Install AWS CLI v2
@@ -24,7 +24,7 @@ rm -rf awscliv2.zip ./aws/
 # Clone configuration repo
 cd /home/ubuntu
 
-if [ "$STAGE" = "Prod" ]; then
+if [ "$stage" = "Prod" ]; then
   echo "🔐 Cloning from private repo..."
   git clone https://${gh_pat}@github.com/${repo_owner}/${repo_name}.git config-repo
 else
@@ -39,11 +39,11 @@ mvn clean package
 cd target
 
 # Copy stage-specific config from config-repo
-cp /home/ubuntu/config-repo/application-${STAGE}.yml /home/ubuntu/app-config.yml
+cp /home/ubuntu/config-repo/application-${stage}.yml /home/ubuntu/app-config.yml
 
 # Run the JAR with 
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
-  --spring.profiles.active=${STAGE} \
+  --spring.profiles.active=${stage} \
   --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
 
 # Create shutdown upload script
@@ -52,10 +52,10 @@ cat <<EOF | sudo tee /usr/local/bin/upload-script-log.sh > /dev/null
 exec >> /var/log/upload-to-s3.log 2>&1
 set -e
 
-BUCKET_NAME="${S3_BUCKET_NAME}"
-STAGE="${STAGE}"
+BUCKET_NAME="${s3_bucket_name}"
+stage="${stage}"
 LOG_FILE="/home/ubuntu/script.log"
-S3_KEY="logs/\${STAGE}/script.log"
+S3_KEY="logs/\${stage}/script.log"
 
 if [ -f "\$LOG_FILE" ]; then
   aws s3 cp "\$LOG_FILE" "s3://\$BUCKET_NAME/\$S3_KEY"

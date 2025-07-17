@@ -63,7 +63,9 @@ resource "aws_instance" "readonly_instance" {
   security_groups = [aws_security_group.ssh_restricted.name]
   iam_instance_profile = aws_iam_instance_profile.readonly_profile.name
   depends_on = [aws_iam_instance_profile.readonly_profile,aws_s3_bucket.log_bucket]
-  user_data = templatefile("${path.module}/../scripts/download_user_data.sh.tpl", {s3_bucket_name = var.s3_bucket_name})
+  user_data = templatefile("${path.module}/../scripts/download_user_data.sh.tpl", {s3_bucket_name = var.s3_bucket_name,
+  stage = lower(var.stage)
+  })
   root_block_device {
     volume_size = var.volume_size
     volume_type = "gp3"
