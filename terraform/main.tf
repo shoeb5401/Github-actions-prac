@@ -27,21 +27,21 @@ resource "aws_key_pair" "assignment" {
 
 # EC2 Instance
 resource "aws_instance" "writeonly_instance" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  key_name      = aws_key_pair.assignment.key_name
+  ami             = var.ami_id
+  instance_type   = var.instance_type
+  key_name        = aws_key_pair.assignment.key_name
   security_groups = [aws_security_group.ssh_restricted.name]
- 
+
   user_data = templatefile("${path.module}/../scripts/upload_user_data.sh.tpl", {
     s3_bucket_name = var.s3_bucket_name,
-    stage = lower(var.stage),
-    gh_pat = var.gh_pat,
-    repo_owner = var.repo_owner,
-    repo_name = var.repo_name
+    stage          = lower(var.stage),
+    gh_pat         = var.gh_pat,
+    repo_owner     = var.repo_owner,
+    repo_name      = var.repo_name
   })
 
   iam_instance_profile = aws_iam_instance_profile.writeonly_profile.name
-  depends_on = [aws_iam_instance_profile.writeonly_profile, aws_s3_bucket.log_bucket]
+  depends_on           = [aws_iam_instance_profile.writeonly_profile, aws_s3_bucket.log_bucket]
 
   root_block_device {
     volume_size = var.volume_size
@@ -56,18 +56,18 @@ resource "aws_instance" "writeonly_instance" {
 }
 
 resource "aws_instance" "readonly_instance" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  key_name      = aws_key_pair.assignment.key_name
-  security_groups = [aws_security_group.ssh_restricted.name]
+  ami                  = var.ami_id
+  instance_type        = var.instance_type
+  key_name             = aws_key_pair.assignment.key_name
+  security_groups      = [aws_security_group.ssh_restricted.name]
   iam_instance_profile = aws_iam_instance_profile.readonly_profile.name
-  depends_on = [aws_iam_instance_profile.readonly_profile, aws_s3_bucket.log_bucket]
-  
+  depends_on           = [aws_iam_instance_profile.readonly_profile, aws_s3_bucket.log_bucket]
+
   user_data = templatefile("${path.module}/../scripts/download_user_data.sh.tpl", {
     s3_bucket_name = var.s3_bucket_name,
-    stage = lower(var.stage)
+    stage          = lower(var.stage)
   })
-  
+
   root_block_device {
     volume_size = var.volume_size
     volume_type = "gp3"
@@ -111,7 +111,7 @@ resource "aws_security_group" "ssh_restricted" {
 
 # IAM Role for S3 Read-Only Access 
 resource "aws_iam_role" "s3_readonly_role" {
-  name = var.s3_readonly_role_name
+  name               = var.s3_readonly_role_name
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 }
 
@@ -123,7 +123,7 @@ resource "aws_iam_role_policy" "s3_readonly_policy" {
 
 # IAM Role for S3 Write-Only Access
 resource "aws_iam_role" "s3_writeonly_role" {
-  name = var.s3_writeonly_role_name
+  name               = var.s3_writeonly_role_name
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 }
 
@@ -148,7 +148,7 @@ data "aws_iam_policy_document" "assume_ec2" {
 # S3 ReadOnly Policy
 data "aws_iam_policy_document" "s3_readonly" {
   statement {
-    actions   = ["s3:ListBucket", "s3:GetObject"]
+    actions = ["s3:ListBucket", "s3:GetObject"]
     resources = [
       aws_s3_bucket.log_bucket.arn,
       "${aws_s3_bucket.log_bucket.arn}/*"
@@ -159,7 +159,7 @@ data "aws_iam_policy_document" "s3_readonly" {
 # S3 WriteOnly Policy
 data "aws_iam_policy_document" "s3_writeonly" {
   statement {
-    actions   = ["s3:PutObject"]
+    actions = ["s3:PutObject"]
     resources = [
       "${aws_s3_bucket.log_bucket.arn}/*"
     ]
@@ -197,7 +197,7 @@ resource "aws_s3_bucket" "log_bucket" {
   tags = {
     Environment = var.stage
   }
-  force_destroy = true  # Optional: only for auto-cleanup during destroy
+  force_destroy = true # Optional: only for auto-cleanup during destroy
 }
 
 # S3 Bucket Lifecycle Configuration

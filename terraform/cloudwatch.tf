@@ -27,15 +27,16 @@ resource "aws_cloudwatch_log_stream" "readonly_script_log" {
 resource "aws_cloudwatch_log_metric_filter" "error_detection" {
   name           = "ErrorDetectionFilter-${var.stage}"
   log_group_name = aws_cloudwatch_log_group.script_logs.name
-  pattern        = "[ERROR] OR [Exception]"
+  pattern        = "?ERROR ?Exception"
 
   metric_transformation {
-    name      = "ErrorCount"
-    namespace = "CustomLogs/${var.stage}"
-    value     = "1"
+    name          = "ErrorCount"
+    namespace     = "CustomLogs/${var.stage}"
+    value         = "1"
     default_value = "0"
   }
 }
+
 
 # SNS Topic for alerts (optional - you can replace with your preferred notification method)
 resource "aws_sns_topic" "error_alerts" {
@@ -50,7 +51,7 @@ resource "aws_sns_topic" "error_alerts" {
 resource "aws_sns_topic_subscription" "email_notification" {
   topic_arn = aws_sns_topic.error_alerts.arn
   protocol  = "email"
-  endpoint  = var.alert_email  
+  endpoint  = var.alert_email
 }
 
 # CloudWatch Alarm for error detection
@@ -60,9 +61,9 @@ resource "aws_cloudwatch_metric_alarm" "script_error_alarm" {
   evaluation_periods  = "1"
   metric_name         = "ErrorCount"
   namespace           = "CustomLogs/${var.stage}"
-  period              = "60"  # 1 minutes
+  period              = "60" # 1 minutes
   statistic           = "Sum"
-  threshold           = "1"    # Trigger when more than 1 error
+  threshold           = "1" # Trigger when more than 1 error
   alarm_description   = "This metric monitors script.log for ERROR or Exception keywords"
   alarm_actions       = [aws_sns_topic.error_alerts.arn]
   ok_actions          = [aws_sns_topic.error_alerts.arn]
@@ -93,7 +94,7 @@ data "aws_iam_policy_document" "cloudwatch_logs_policy" {
       "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/script-logs-${var.stage}:*"
     ]
   }
-  
+
   statement {
     effect = "Allow"
     actions = [
