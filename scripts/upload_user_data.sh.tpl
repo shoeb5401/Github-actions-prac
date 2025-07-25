@@ -1,6 +1,7 @@
-#!/bin/bash
+#! /bin/bash
 exec > /home/ubuntu/script.log 2>&1
 set -e
+set -o 
 set -x
 # Accept input variables
 stage="${stage}"
@@ -8,15 +9,26 @@ gh_pat="${gh_pat}"
 repo_owner="${repo_owner}"
 repo_name="${repo_name}"
 s3_bucket_name="${s3_bucket_name}"
+
 # Install dependencies
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y openjdk-21-jdk maven unzip
+sudo apt update -qq && sudo apt upgrade -qq -y
+sudo apt install -y openjdk-21-jdk maven unzip curl wget
+
+#Install CloudWatch Agent
+wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+sudo systemctl enable amazon-cloudwatch-agent
+rm -rf ./amazon-cloudwatch-agent.deb
+
+
 # Install AWS CLI v2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install
 aws --version
 rm -rf awscliv2.zip ./aws/
+
+
 # Clone configuration repo
 cd /home/ubuntu
 echo "GH_PAT length: $${#gh_pat}"
@@ -24,17 +36,29 @@ set +x # Prevent leaking token
 echo "🔐 Cloning from private repo for stage: $$stage"
 git clone "https://$${gh_pat}@github.com/$${repo_owner}/$${repo_name}.git" config-repo
 set -x
+
+# Copy stage-specific config from config-repo
+cp "/home/ubuntu/config-repo/application-$${stage}.yml" "/home/ubuntu/app-config.yml"
+cp "/home/ubuntu/config-repo/cloudwatch-agent-config.json" "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+# Start the amazon CloudWatch Agent
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config \
+    -m ec2 \
+    -s \
+    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
 # Clone and build app
 git clone https://github.com/techeazy-consulting/techeazy-devops.git
 cd techeazy-devops
 mvn clean package
 cd target
-# Copy stage-specific config from config-repo
-cp "/home/ubuntu/config-repo/application-$${stage}.yml" "/home/ubuntu/app-config.yml"
+
+
 # Run the JAR with
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
 --spring.profiles.active=$${stage} \
 --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
+
 # Create shutdown upload script
 sudo tee /usr/local/bin/upload-script-log.sh > /dev/null <<EOF
 #!/bin/bash
@@ -52,6 +76,7 @@ else
 fi
 EOF
 sudo chmod +x /usr/local/bin/upload-script-log.sh
+
 # Create systemd shutdown service
 sudo tee /etc/systemd/system/upload-script-log.service > /dev/null <<EOF
 [Unit]
@@ -66,10 +91,12 @@ RemainAfterExit=true
 [Install]
 WantedBy=halt.target reboot.target shutdown.target
 EOF
+
 # Reload systemd and enable shutdown service
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable upload-script-log.service
+
 # ✅ Upload log immediately after script finishes
 aws s3 cp /home/ubuntu/script.log s3://${s3_bucket_name}/logs/${stage}/script.log || echo "Upload failed"
 echo "✅ Script completed successfully"

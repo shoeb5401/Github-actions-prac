@@ -78,3 +78,9 @@ variable "repo_name" {
   description = "GitHub repo name"
   default     = "Secure-Repo-Config"
 }
+
+variable "alert_email" {
+  description = "Email address for CloudWatch alarm notifications"
+  type        = string
+  default     = "shoeb.qureshi.5401@gmail.com"  
+}

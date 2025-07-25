@@ -34,3 +34,19 @@ output "s3_writeonly_role_arn" {
 output "s3_bucket_name" {
   value = aws_s3_bucket.log_bucket.bucket
 }
+
+
+output "cloudwatch_log_group_name" {
+  description = "CloudWatch Log Group name for script logs"
+  value       = aws_cloudwatch_log_group.script_logs.name
+}
+
+output "cloudwatch_alarm_name" {
+  description = "CloudWatch Alarm name for error detection"
+  value       = aws_cloudwatch_metric_alarm.script_error_alarm.alarm_name
+}
+
+output "sns_topic_arn" {
+  description = "SNS Topic ARN for error notifications"
+  value       = aws_sns_topic.error_alerts.arn
+}
