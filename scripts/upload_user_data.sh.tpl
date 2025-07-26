@@ -11,8 +11,8 @@ repo_name="${repo_name}"
 s3_bucket_name="${s3_bucket_name}"
 
 # Install dependencies
-# sudo apt update  && sudo apt upgrade  -y
-sudo apt install -y openjdk-21-jdk maven unzip curl wget
+sudo apt update  || true
+sudo apt install -y openjdk-21-jdk maven unzip curl wget || true
 
 #Install CloudWatch Agent
 wget  https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
