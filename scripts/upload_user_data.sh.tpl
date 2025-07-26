@@ -104,9 +104,8 @@ sudo systemctl enable upload-script-log.service
 # ✅ Upload log immediately after script finishes
 aws s3 cp /home/ubuntu/script.log s3://${s3_bucket_name}/logs/${stage}/script.log || echo "Upload failed"
 echo "✅ Script completed successfully"
-exit 0
-
 
 # Manually calling the errors to test the cloudwatch agent 
 echo "ERROR: Simulated failure on \$(date)" >> /home/ubuntu/script.log
 echo "Exception: Simulated failure on \$(date)" >> /home/ubuntu/script.log
+exit 0 

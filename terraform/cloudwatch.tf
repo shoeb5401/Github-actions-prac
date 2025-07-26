@@ -25,7 +25,7 @@ resource "aws_cloudwatch_log_stream" "readonly_script_log" {
 resource "aws_cloudwatch_log_metric_filter" "error_detection" {
   name           = "ErrorDetectionFilter-${var.stage}"
   log_group_name = aws_cloudwatch_log_group.script_logs.name
-  pattern        = "?ERROR ?Exception"
+  pattern        = "ERROR || Exception"
 
   metric_transformation {
     name          = "ErrorCount"
@@ -38,7 +38,7 @@ resource "aws_cloudwatch_log_metric_filter" "error_detection" {
 # SNS Topic for alerts
 resource "aws_sns_topic" "error_alerts" {
   name = "app-alerts-topic"
-
+  display_name = "App Alerts – ${var.stage}"
   tags = {
     Environment = var.stage
   }
@@ -55,12 +55,12 @@ resource "aws_sns_topic_subscription" "email_notification" {
 resource "aws_cloudwatch_metric_alarm" "script_error_alarm" {
   alarm_name          = "script-errors-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "10"  # 10 periods of 30 seconds = 5 minutes
+  evaluation_periods  = 10  # 10 periods of 30 seconds = 5 minutes
   metric_name         = "ErrorCount"
   namespace           = "CustomLogs/${var.stage}"
-  period              = "30"  # 30 seconds instead of 60
+  period              = 30  # 30 seconds instead of 60
   statistic           = "Sum"
-  threshold           = "0"   # Trigger on any error (greater than 0)
+  threshold           = 0   # Trigger on any error (greater than 0)
   alarm_description   = "This metric monitors script.log for ERROR or Exception keywords"
   alarm_actions       = [aws_sns_topic.error_alerts.arn]
   ok_actions          = [aws_sns_topic.error_alerts.arn]
@@ -109,9 +109,9 @@ resource "aws_iam_role_policy" "writeonly_cloudwatch_policy" {
   policy = data.aws_iam_policy_document.cloudwatch_logs_policy.json
 }
 
-# Attach CloudWatch policy to read-only role
-resource "aws_iam_role_policy" "readonly_cloudwatch_policy" {
-  name   = "CloudWatchLogsPolicy"
-  role   = aws_iam_role.s3_readonly_role.id
-  policy = data.aws_iam_policy_document.cloudwatch_logs_policy.json
+
+
+resource "aws_iam_role_policy_attachment" "writeonly_cw_agent" {
+  role       = aws_iam_role.s3_writeonly_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
