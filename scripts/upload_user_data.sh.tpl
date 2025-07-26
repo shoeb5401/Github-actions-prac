@@ -49,8 +49,14 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 sudo systemctl enable amazon-cloudwatch-agent
 
 
+
 # Download the compiled java app
 curl -O https://raw.githubusercontent.com/shoeb5401/tech_eazy_devops_shoeb5401/main/backend/techeazy-devops-0.0.1-SNAPSHOT.jar
+
+# Manually calling the errors to test the cloudwatch agent 
+echo "ERROR: Simulated failure on \$(date)" >> /home/ubuntu/script.log
+echo "Exception: Simulated failure on \$(date)" >> /home/ubuntu/script.log
+
 
 # Run the JAR with
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
@@ -99,3 +105,8 @@ sudo systemctl enable upload-script-log.service
 aws s3 cp /home/ubuntu/script.log s3://${s3_bucket_name}/logs/${stage}/script.log || echo "Upload failed"
 echo "✅ Script completed successfully"
 exit 0
+
+
+# Manually calling the errors to test the cloudwatch agent 
+echo "ERROR: Simulated failure on \$(date)" >> /home/ubuntu/script.log
+echo "Exception: Simulated failure on \$(date)" >> /home/ubuntu/script.log

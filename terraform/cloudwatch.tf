@@ -1,5 +1,3 @@
-# Add this to your main.tf file
-
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "script_logs" {
   name              = "/aws/ec2/script-logs-${var.stage}"
@@ -37,8 +35,7 @@ resource "aws_cloudwatch_log_metric_filter" "error_detection" {
   }
 }
 
-
-# SNS Topic for alerts (optional - you can replace with your preferred notification method)
+# SNS Topic for alerts
 resource "aws_sns_topic" "error_alerts" {
   name = "app-alerts-topic"
 
@@ -47,36 +44,33 @@ resource "aws_sns_topic" "error_alerts" {
   }
 }
 
-# SNS Topic Subscription (replace email with your actual email)
+# SNS Topic Subscription
 resource "aws_sns_topic_subscription" "email_notification" {
   topic_arn = aws_sns_topic.error_alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email
 }
 
-# CloudWatch Alarm for error detection
+# CloudWatch Alarm for error detection - Updated for 30-second trigger
 resource "aws_cloudwatch_metric_alarm" "script_error_alarm" {
   alarm_name          = "script-errors-${var.stage}"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
+  evaluation_periods  = "10"  # 10 periods of 30 seconds = 5 minutes
   metric_name         = "ErrorCount"
   namespace           = "CustomLogs/${var.stage}"
-  period              = "60" # 1 minutes
+  period              = "30"  # 30 seconds instead of 60
   statistic           = "Sum"
-  threshold           = "1" # Trigger when more than 1 error
+  threshold           = "0"   # Trigger on any error (greater than 0)
   alarm_description   = "This metric monitors script.log for ERROR or Exception keywords"
   alarm_actions       = [aws_sns_topic.error_alerts.arn]
   ok_actions          = [aws_sns_topic.error_alerts.arn]
   treat_missing_data  = "notBreaching"
-  datapoints_to_alarm = 1
+  datapoints_to_alarm = 2     # More than 1 datapoint as requested
 
   tags = {
     Environment = var.stage
   }
 }
-
-
-# Add these IAM permissions to your main.tf file
 
 # CloudWatch Logs policy for both instances
 data "aws_iam_policy_document" "cloudwatch_logs_policy" {
