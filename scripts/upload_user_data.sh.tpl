@@ -11,13 +11,13 @@ repo_name="${repo_name}"
 s3_bucket_name="${s3_bucket_name}"
 
 # Install dependencies
-sudo apt update -qq && sudo apt upgrade -qq -y
+# sudo apt update  && sudo apt upgrade  -y
 sudo apt install -y openjdk-21-jdk maven unzip curl wget
 
 #Install CloudWatch Agent
-wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+wget  https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
-sudo systemctl enable amazon-cloudwatch-agent
+
 rm -rf ./amazon-cloudwatch-agent.deb
 
 
@@ -46,13 +46,11 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
     -m ec2 \
     -s \
     -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+sudo systemctl enable amazon-cloudwatch-agent
 
-# Clone and build app
-git clone https://github.com/techeazy-consulting/techeazy-devops.git
-cd techeazy-devops
-mvn clean package
-cd target
 
+# Download the compiled java app
+curl -O https://raw.githubusercontent.com/shoeb5401/tech_eazy_devops_shoeb5401/main/backend/techeazy-devops-0.0.1-SNAPSHOT.jar
 
 # Run the JAR with
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \

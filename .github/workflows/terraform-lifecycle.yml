@@ -67,6 +67,14 @@ jobs:
         with:
           terraform_version: 1.5.0
 
+      - name: 💾 Cache Terraform dependencies
+        uses: actions/cache@v3
+        with:
+          path: terraform/.terraform
+          key: terraform-${{ runner.os }}-${{ env.STAGE }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
       - name: ⚙️ Terraform Init
 
         run: terraform init -backend-config="backend-${STAGE_LOWER}.config"
@@ -95,11 +103,6 @@ jobs:
       - name: 🚀 Terraform Apply
         if: env.ACTION == 'apply'
         run: terraform apply -auto-approve tfplan
-        working-directory: terraform
-
-      - name: 🧪 Debug Terraform Outputs
-        if: env.ACTION == 'apply'
-        run: terraform output
         working-directory: terraform
 
       - name: 🌐 Get EC2 Public IP
@@ -151,18 +154,18 @@ jobs:
           echo "📡 EC2_IP resolved to: $EC2_IP"
 
           echo "🔎 Waiting for port 80 to open using netcat (nc)..."
-          MAX_PORT_ATTEMPTS=30
+          MAX_PORT_ATTEMPTS=10
           for i in $(seq 1 $MAX_PORT_ATTEMPTS); do
             if nc -z "$EC2_IP" 80; then
               echo "✅ Port 80 is open"
               break
             fi
-            echo "❌ Port 80 not open yet. Attempt $i of $MAX_PORT_ATTEMPTS. Retrying in 10 seconds..."
-            sleep 10
+            echo "❌ Port 80 not open yet. Attempt $i of $MAX_PORT_ATTEMPTS. Retrying in 5 seconds..."
+            sleep 5
           done
 
           echo "🌐 Verifying HTTP response with curl..."
-          MAX_ATTEMPTS=30
+          MAX_ATTEMPTS=10
           for i in $(seq 1 $MAX_ATTEMPTS); do
             echo "⏳ Attempt $i..."
             STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$EC2_IP")
@@ -173,8 +176,8 @@ jobs:
               exit 0
             fi
 
-            echo "❌ Not reachable yet. Retrying in 10 seconds..."
-            sleep 10
+            echo "❌ Not reachable yet. Retrying in 5 seconds..."
+            sleep 5
           done
 
           echo "❌ Failed: App not reachable after $MAX_ATTEMPTS attempts"
