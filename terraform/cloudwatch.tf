@@ -21,19 +21,30 @@ resource "aws_cloudwatch_log_stream" "readonly_script_log" {
   log_group_name = aws_cloudwatch_log_group.script_logs.name
 }
 
-# Metric Filter to detect ERROR or Exception keywords
-resource "aws_cloudwatch_log_metric_filter" "error_detection" {
-  name           = "ErrorDetectionFilter-${var.stage}"
-  log_group_name = aws_cloudwatch_log_group.script_logs.name
-  pattern        = "ERROR || Exception"
+resource "aws_cloudwatch_log_metric_filter" "error_filter" {
+  name           = "ErrorFilter"
+  log_group_name = aws_cloudwatch_log_group.example.name
+  pattern        = "ERROR"
 
   metric_transformation {
-    name          = "ErrorCount"
-    namespace     = "CustomLogs/${var.stage}"
-    value         = "1"
-    default_value = "0"
+    name      = "ErrorCount"
+    namespace = "YourApp/Metrics"
+    value     = "1"
   }
 }
+
+resource "aws_cloudwatch_log_metric_filter" "exception_filter" {
+  name           = "ExceptionFilter"
+  log_group_name = aws_cloudwatch_log_group.example.name
+  pattern        = "Exception"
+
+  metric_transformation {
+    name      = "ExceptionCount"
+    namespace = "YourApp/Metrics"
+    value     = "1"
+  }
+}
+
 
 # SNS Topic for alerts
 resource "aws_sns_topic" "error_alerts" {
