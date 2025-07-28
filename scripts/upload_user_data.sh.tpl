@@ -36,8 +36,8 @@ git clone "https://$${gh_pat}@github.com/$${repo_owner}/$${repo_name}.git" confi
 set -x
 
 # Copy stage-specific config from config-repo
-cp "/home/ubuntu/config-repo/application-$${stage}.yml" "/home/ubuntu/app-config.yml"
-cp "/home/ubuntu/config-repo/cloudwatch-agent-config.json" "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+sudo cp "/home/ubuntu/config-repo/application-$${stage}.yml" "/home/ubuntu/app-config.yml"
+sudo cp "/home/ubuntu/config-repo/cloudwatch-agent-config.json" "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
 
 # Set proper permissions for log file (since running as root)
 sudo chown ubuntu:ubuntu /home/ubuntu/script.log
@@ -63,7 +63,6 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Exception: Simulated failure" >> /home/ubuntu
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
 --spring.profiles.active=$${stage} \
 --spring.config.additional-location=file:/home/ubuntu/app-config.yml &
-
 # Create shutdown upload script
 sudo tee /usr/local/bin/upload-script-log.sh > /dev/null <<EOF
 #!/bin/bash
