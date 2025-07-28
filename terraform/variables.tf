@@ -82,5 +82,6 @@ variable "repo_name" {
 variable "alert_email" {
   description = "Email address for CloudWatch alarm notifications"
   type        = string
-  default     = "shoeb.qureshi.5401@gmail.com"
+  default     = "shoeb.211618.et@mhssce.ac.in"
+
 }
