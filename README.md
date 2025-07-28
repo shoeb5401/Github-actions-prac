@@ -1,6 +1,6 @@
 # 📘 DevOps EC2 Automation with Terraform (GitHub Actions Enabled)
 
-This project provides a fully automated infrastructure deployment pipeline using **Terraform** and **GitHub Actions**. It provisions AWS EC2 instances, configures IAM roles, uploads logs to S3, fetches environment-based config files, and ensures application health using port checks.
+This project provides a fully automated infrastructure deployment pipeline using **Terraform** and **GitHub Actions**. It provisions AWS EC2 instances, configures IAM roles, uploads logs to S3, fetches environment-based config files, and ensures application health using port checks. I have improved this project with the help of coudwatch agent.
 
 ---
 
