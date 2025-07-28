@@ -25,7 +25,7 @@ resource "aws_key_pair" "assignment" {
   public_key = tls_private_key.assignment.public_key_openssh
 }
 
-# EC2 Instance - Write Only
+# EC2 Instance - Write Only (with CloudWatch monitoring)
 resource "aws_instance" "writeonly_instance" {
   ami             = var.ami_id
   instance_type   = var.instance_type
@@ -55,7 +55,7 @@ resource "aws_instance" "writeonly_instance" {
   }
 }
 
-# EC2 Instance - Read Only
+# EC2 Instance - Read Only 
 resource "aws_instance" "readonly_instance" {
   ami                  = var.ami_id
   instance_type        = var.instance_type
@@ -83,7 +83,7 @@ resource "aws_instance" "readonly_instance" {
 
 # Security Group
 resource "aws_security_group" "ssh_restricted" {
-  name        = "ssh-from-my-ip-${var.stage}"  # FIXED: Added stage to make unique
+  name        = "ssh-from-my-ip-${var.stage}"
   description = "Allow SSH access from my IP only"
 
   ingress {
@@ -117,7 +117,7 @@ resource "aws_security_group" "ssh_restricted" {
 
 # IAM Role for S3 Read-Only Access 
 resource "aws_iam_role" "s3_readonly_role" {
-  name               = "${var.s3_readonly_role_name}-${var.stage}"  # FIXED: Added stage for uniqueness
+  name               = "${var.s3_readonly_role_name}-${var.stage}"
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 
   tags = {
@@ -126,14 +126,14 @@ resource "aws_iam_role" "s3_readonly_role" {
 }
 
 resource "aws_iam_role_policy" "s3_readonly_policy" {
-  name   = "S3ReadOnlyPolicy-${var.stage}"  # FIXED: Added stage for uniqueness
+  name   = "S3ReadOnlyPolicy-${var.stage}"
   role   = aws_iam_role.s3_readonly_role.id
   policy = data.aws_iam_policy_document.s3_readonly.json
 }
 
-# IAM Role for S3 Write-Only Access
+# IAM Role for S3 Write-Only Access + CloudWatch permissions
 resource "aws_iam_role" "s3_writeonly_role" {
-  name               = "${var.s3_writeonly_role_name}-${var.stage}"  # FIXED: Added stage for uniqueness
+  name               = "${var.s3_writeonly_role_name}-${var.stage}"
   assume_role_policy = data.aws_iam_policy_document.assume_ec2.json
 
   tags = {
@@ -142,7 +142,7 @@ resource "aws_iam_role" "s3_writeonly_role" {
 }
 
 resource "aws_iam_role_policy" "s3_writeonly_policy" {
-  name   = "S3WriteOnlyPolicy-${var.stage}"  # FIXED: Added stage for uniqueness
+  name   = "S3WriteOnlyPolicy-${var.stage}"
   role   = aws_iam_role.s3_writeonly_role.id
   policy = data.aws_iam_policy_document.s3_writeonly.json
 }
@@ -159,7 +159,7 @@ data "aws_iam_policy_document" "assume_ec2" {
   }
 }
 
-# ENHANCED: S3 ReadOnly Policy with CloudWatch Logs permissions
+# S3 ReadOnly Policy
 data "aws_iam_policy_document" "s3_readonly" {
   statement {
     actions = ["s3:ListBucket", "s3:GetObject"]
@@ -168,33 +168,9 @@ data "aws_iam_policy_document" "s3_readonly" {
       "${aws_s3_bucket.log_bucket.arn}/*"
     ]
   }
-
-  # ADDED: CloudWatch Logs permissions for readonly instance
-  statement {
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogStreams",
-      "logs:DescribeLogGroups"
-    ]
-    resources = [
-      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/${var.stage}/script-logs",
-      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/${var.stage}/script-logs:*"
-    ]
-  }
-
-  # ADDED: EC2 describe permissions for CloudWatch agent
-  statement {
-    actions = [
-      "ec2:DescribeVolumes",
-      "ec2:DescribeTags"
-    ]
-    resources = ["*"]
-  }
 }
 
-# ENHANCED: S3 WriteOnly Policy with CloudWatch Logs permissions
+# S3 WriteOnly Policy + CloudWatch permissions
 data "aws_iam_policy_document" "s3_writeonly" {
   statement {
     actions = ["s3:PutObject"]
@@ -215,7 +191,7 @@ data "aws_iam_policy_document" "s3_writeonly" {
     ]
   }
 
-  # ADDED: CloudWatch Logs permissions for writeonly instance
+  # CloudWatch Logs permissions for writeonly instance only
   statement {
     actions = [
       "logs:CreateLogGroup",
@@ -225,12 +201,12 @@ data "aws_iam_policy_document" "s3_writeonly" {
       "logs:DescribeLogGroups"
     ]
     resources = [
-      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/${var.stage}/script-logs",
-      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/${var.stage}/script-logs:*"
+      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/script-logs",
+      "arn:aws:logs:${var.region}:*:log-group:/aws/ec2/script-logs:*"
     ]
   }
 
-  # ADDED: EC2 describe permissions for CloudWatch agent
+  # EC2 describe permissions for CloudWatch agent
   statement {
     actions = [
       "ec2:DescribeVolumes",
@@ -260,6 +236,12 @@ resource "aws_iam_instance_profile" "readonly_profile" {
   }
 }
 
+# Attach CloudWatch Agent policy to write-only role ONLY
+resource "aws_iam_role_policy_attachment" "writeonly_cw_agent" {
+  role       = aws_iam_role.s3_writeonly_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 # Private S3 Bucket
 resource "aws_s3_bucket" "log_bucket" {
   bucket = var.s3_bucket_name
@@ -268,7 +250,7 @@ resource "aws_s3_bucket" "log_bucket" {
     Environment = var.stage
     Purpose     = "Application logs storage"
   }
-  force_destroy = true # Optional: only for auto-cleanup during destroy
+  force_destroy = true
 }
 
 # S3 Bucket Lifecycle Configuration
@@ -287,8 +269,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "log_lifecycle" {
       prefix = "logs/"
     }
   }
-
- 
 }
 
 # S3 Bucket Public Access Block

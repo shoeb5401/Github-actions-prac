@@ -141,7 +141,7 @@ jobs:
         run: |
           chmod 400 "${{ env.key_path }}"
           ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} \
-          "timeout 170 tail -f /home/ubuntu/script.log || true "
+          "timeout 200 tail -f /home/ubuntu/script.log || true "
 
       - name: 🌐 Wait for Port 80 (App Health Check)
         if: env.ACTION == 'apply'

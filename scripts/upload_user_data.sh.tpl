@@ -1,8 +1,9 @@
-#! /bin/bash
+#!/bin/bash
 exec > /home/ubuntu/script.log 2>&1
 set -e
-set -o 
+set -o pipefail
 set -x
+
 # Accept input variables
 stage="${stage}"
 gh_pat="${gh_pat}"
@@ -11,15 +12,13 @@ repo_name="${repo_name}"
 s3_bucket_name="${s3_bucket_name}"
 
 # Install dependencies
-sudo apt update  || true
-sudo apt install -y openjdk-21-jdk maven unzip curl wget || true
+sudo apt update || true
+sudo apt install -y openjdk-21-jdk maven unzip curl wget git || true
 
-#Install CloudWatch Agent
-wget  https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+# Install CloudWatch Agent
+wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
-
 rm -rf ./amazon-cloudwatch-agent.deb
-
 
 # Install AWS CLI v2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -27,7 +26,6 @@ unzip -q awscliv2.zip
 sudo ./aws/install
 aws --version
 rm -rf awscliv2.zip ./aws/
-
 
 # Clone configuration repo
 cd /home/ubuntu
@@ -40,23 +38,26 @@ set -x
 # Copy stage-specific config from config-repo
 cp "/home/ubuntu/config-repo/application-$${stage}.yml" "/home/ubuntu/app-config.yml"
 cp "/home/ubuntu/config-repo/cloudwatch-agent-config.json" "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+
+# Set proper permissions for log file (since running as root)
+sudo chown ubuntu:ubuntu /home/ubuntu/script.log
+sudo chmod 644 /home/ubuntu/script.log
+
 # Start the amazon CloudWatch Agent
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
     -a fetch-config \
     -m ec2 \
     -s \
     -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
 sudo systemctl enable amazon-cloudwatch-agent
-
-
 
 # Download the compiled java app
 curl -O https://raw.githubusercontent.com/shoeb5401/tech_eazy_devops_shoeb5401/main/backend/techeazy-devops-0.0.1-SNAPSHOT.jar
 
-# Manually calling the errors to test the cloudwatch agent 
-echo "ERROR: Simulated failure on \$(date)" >> /home/ubuntu/script.log
-echo "Exception: Simulated failure on \$(date)" >> /home/ubuntu/script.log
-
+# Manually calling the errors to test the cloudwatch agent
+echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Simulated failure" >> /home/ubuntu/script.log
+echo "$(date '+%Y-%m-%d %H:%M:%S') Exception: Simulated failure" >> /home/ubuntu/script.log
 
 # Run the JAR with
 nohup sudo java -jar techeazy-devops-0.0.1-SNAPSHOT.jar \
@@ -105,7 +106,4 @@ sudo systemctl enable upload-script-log.service
 aws s3 cp /home/ubuntu/script.log s3://${s3_bucket_name}/logs/${stage}/script.log || echo "Upload failed"
 echo "✅ Script completed successfully"
 
-# Manually calling the errors to test the cloudwatch agent 
-echo "ERROR: Simulated failure on \$(date)" >> /home/ubuntu/script.log
-echo "Exception: Simulated failure on \$(date)" >> /home/ubuntu/script.log
-exit 0 
+exit 0
