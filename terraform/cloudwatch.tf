@@ -13,20 +13,20 @@ resource "aws_cloudwatch_log_group" "script_logs" {
 resource "aws_cloudwatch_log_metric_filter" "error_exception_filter" {
   name           = "ErrorExceptionFilter-${var.stage}"
   log_group_name = aws_cloudwatch_log_group.script_logs.name
-  pattern        = "?ERROR ?Exception ?FATAL ?error ?exception"  
+  pattern        = "?ERROR ?Exception ?FATAL ?error ?exception"  # Simple pattern that catches errors
 
   metric_transformation {
     name          = "ErrorCount"
     namespace     = "ScriptLogs/${var.stage}"
-    value         = 1
-    default_value = 0  
+    value         = "1"
+    default_value = "0"  # Important: Set default value
   }
 }
 
 # SNS Topic for error alerts
 resource "aws_sns_topic" "error_alerts" {
   name         = "script-error-alerts-${var.stage}"
-  display_name = "🚨 Script Error Alerts - ${var.stage}"
+  display_name = "Script Error Alerts - ${var.stage}"
   
   tags = {
     Environment = var.stage
@@ -74,7 +74,7 @@ resource "aws_sns_topic_subscription" "email_notification" {
 
 # CloudWatch Alarm - IMMEDIATE ERROR DETECTION
 resource "aws_cloudwatch_metric_alarm" "script_error_alarm" {
-  alarm_name          = "🚨-SCRIPT-ERROR-${var.stage}"
+  alarm_name          = "CRITICAL-SCRIPT-ERROR-${var.stage}"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1                    # Immediate trigger
   metric_name         = "ErrorCount"
@@ -83,29 +83,28 @@ resource "aws_cloudwatch_metric_alarm" "script_error_alarm" {
   statistic           = "Sum"
   threshold           = 1                    # ANY error triggers alert
   alarm_description   = <<-EOF
-      🚨 CRITICAL: Script Error Detected in ${var.stage} Environment 🚨
+CRITICAL: Script Error Detected in ${var.stage} Environment
 
-      ERROR DETAILS:
-      - Environment: ${var.stage}
-      - Instance: ${var.stage}-writeonly-instance
-      - Log File: /home/ubuntu/script.log
-      - CloudWatch Log Group: /aws/ec2/script-logs
-      - S3 Backup: s3://${var.s3_bucket_name}/logs/${var.stage}/script.log
+ERROR DETAILS:
+- Environment: ${var.stage}
+- Instance: ${var.stage}-writeonly-instance
+- Log File: /home/ubuntu/script.log
+- CloudWatch Log Group: /aws/ec2/script-logs
+- S3 Backup: s3://${var.s3_bucket_name}/logs/${var.stage}/script.log
 
-      IMMEDIATE ACTION REQUIRED:
-      1. SSH to instance: ssh -i ${var.key_name}.pem ubuntu@[INSTANCE-IP]
-      2. Check logs: tail -f /home/ubuntu/script.log
-      3. Download S3 logs: aws s3 cp s3://${var.s3_bucket_name}/logs/${var.stage}/script.log .
-      4. Check application: ps aux | grep java
+IMMEDIATE ACTION REQUIRED:
+1. SSH to instance: ssh -i ${var.key_name}.pem ubuntu@[INSTANCE-IP]
+2. Check logs: tail -f /home/ubuntu/script.log
+3. Download S3 logs: aws s3 cp s3://${var.s3_bucket_name}/logs/${var.stage}/script.log .
+4. Check application: ps aux | grep java
 
-      ALERT TRIGGERED:
-      This alarm activates when ERROR or Exception keywords are detected in the script logs.
+ALERT TRIGGERED:
+This alarm activates when ERROR or Exception keywords are detected in the script logs.
 
-      Severity: CRITICAL
-      Contact: ${var.alert_email}
-      Generated: $(date)
+Severity: CRITICAL
+Contact: ${var.alert_email}
 
-      Auto-Alert from AWS CloudWatch
+Auto-Alert from AWS CloudWatch
 EOF
 
   alarm_actions       = [aws_sns_topic.error_alerts.arn]
@@ -131,5 +130,5 @@ output "sns_topic_arn_for_errors" {
 
 output "email_confirmation_warning" {
   description = "CRITICAL: Email confirmation required"
-  value       = "⚠️ IMPORTANT: Check email ${var.alert_email} and CONFIRM the SNS subscription to receive alerts!"
+  value       = "IMPORTANT: Check email ${var.alert_email} and CONFIRM the SNS subscription to receive alerts!"
 }
