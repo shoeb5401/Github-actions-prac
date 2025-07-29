@@ -188,9 +188,9 @@ jobs:
         run: terraform destroy -auto-approve -var-file="${STAGE_LOWER}_config.tfvars"
         working-directory: terraform
 
-      - name: 💣 Trigger Shutdown Remotely
-        if: env.ACTION == 'apply'
-        run: |
-          echo "Triggering EC2 shutdown..."
-          ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} "sudo shutdown -h +10"
-        working-directory: terraform
+      # - name: 💣 Trigger Shutdown Remotely
+      #   if: env.ACTION == 'apply'
+      #   run: |
+      #     echo "Triggering EC2 shutdown..."
+      #     ssh -o StrictHostKeyChecking=no -i "${{ env.key_path }}" ubuntu@${{ steps.ec2_ip.outputs.ec2_ip }} "sudo shutdown -h +10"
+      #   working-directory: terraform
