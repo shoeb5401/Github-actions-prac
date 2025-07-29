@@ -107,11 +107,6 @@ This project provides a fully automated infrastructure deployment pipeline using
     - `s3://<bucket>/logs/prod/...`
 11. **Sets up real-time CloudWatch monitoring and error alerting**
 12. Performs port 80 health check with up to 5 minutes retry
-## 📌 Authors
-
-Maintained by **shoeb qureshi** — feel free to contribute or open issues.
-
-**New CloudWatch monitoring features enhance reliability and provide immediate visibility into application health across all environments.**
 ---
 
 ## 🧰 Prerequisites
