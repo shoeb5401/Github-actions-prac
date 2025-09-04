@@ -4,6 +4,12 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ---
 
+# Architecture
+
+![Architecture Diagram](assets/architecture.png)
+
+
+
 ## 📁 Project Structure
 
 ```
@@ -73,12 +79,12 @@ This project provides a fully automated infrastructure deployment pipeline using
 
 ### CloudWatch Resources Created
 
-| Resource | Purpose | Configuration |
-|----------|---------|---------------|
-| **Log Group** | `/aws/ec2/script-logs` | 7-day retention |
-| **Metric Filter** | Error pattern detection | `?ERROR ?Exception ?FATAL ?error ?exception` |
-| **SNS Topic** | `script-error-alerts-{stage}` | Email notifications |
-| **CloudWatch Alarm** | `CRITICAL-SCRIPT-ERROR-{stage}` | 1-minute evaluation period |
+| Resource             | Purpose                         | Configuration                                |
+| -------------------- | ------------------------------- | -------------------------------------------- |
+| **Log Group**        | `/aws/ec2/script-logs`          | 7-day retention                              |
+| **Metric Filter**    | Error pattern detection         | `?ERROR ?Exception ?FATAL ?error ?exception` |
+| **SNS Topic**        | `script-error-alerts-{stage}`   | Email notifications                          |
+| **CloudWatch Alarm** | `CRITICAL-SCRIPT-ERROR-{stage}` | 1-minute evaluation period                   |
 
 ---
 
@@ -107,6 +113,7 @@ This project provides a fully automated infrastructure deployment pipeline using
     - `s3://<bucket>/logs/prod/...`
 11. **Sets up real-time CloudWatch monitoring and error alerting**
 12. Performs port 80 health check with up to 5 minutes retry
+
 ---
 
 ## 🧰 Prerequisites
@@ -136,12 +143,13 @@ aws s3api create-bucket \
 
 ## 🔐 Enhanced IAM Roles
 
-| Role        | Access Type | Scope    | Permissions                  |
-| ----------- | ----------- | -------- | ---------------------------- |
+| Role        | Access Type | Scope    | Permissions                                                 |
+| ----------- | ----------- | -------- | ----------------------------------------------------------- |
 | `writeonly` | Write-only  | EC2      | `s3:PutObject` + **CloudWatch Logs** + **CloudWatch Agent** |
-| `readonly`  | Read-only   | EC2/User | `s3:GetObject`, `ListBucket` |
+| `readonly`  | Read-only   | EC2/User | `s3:GetObject`, `ListBucket`                                |
 
 ### New CloudWatch Permissions (Write-Only Role)
+
 - `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`
 - `logs:DescribeLogStreams`, `logs:DescribeLogGroups`
 - `ec2:DescribeVolumes`, `ec2:DescribeTags`
@@ -171,6 +179,7 @@ aws s3api create-bucket \
 ## 📤 Enhanced Log Retrieval & Monitoring
 
 ### Traditional S3 Access (Read-Only EC2)
+
 ```bash
 aws configure --profile readonly
 aws s3 ls s3://<bucket>/logs/dev/
@@ -178,6 +187,7 @@ aws s3 cp s3://<bucket>/logs/dev/script.log .
 ```
 
 ### Real-time CloudWatch Monitoring
+
 ```bash
 # View live logs
 aws logs tail /aws/ec2/script-logs --follow
@@ -197,18 +207,22 @@ aws cloudwatch get-metric-statistics \
 ## 🚨 Error Detection & Response
 
 ### Automatic Error Detection
+
 - **Pattern**: Detects `ERROR`, `Exception`, `FATAL`, `error`, `exception` in logs
 - **Response Time**: ~1 minute from error occurrence to email notification
 - **Coverage**: All application logs written to `/home/ubuntu/script.log`
 
 ### Email Alert Content
+
 Each alert includes:
+
 - ✅ **Environment Details** (stage, instance ID, log locations)
 - ✅ **Immediate Action Steps** (SSH commands, log checking)
 - ✅ **Troubleshooting Links** (S3 backup, CloudWatch console)
 - ✅ **Severity Level** (CRITICAL for any error detection)
 
 ### Post-Alert Actions
+
 1. **Check Email**: Confirm SNS subscription after first deployment
 2. **SSH to Instance**: Use provided commands in alert email
 3. **Investigate**: Review logs both locally and in CloudWatch
@@ -275,6 +289,7 @@ aws sns list-topics | grep script-error-alerts
 4. **Without confirmation, you won't receive error alerts!**
 
 ### Verify Email Setup
+
 ```bash
 # Check SNS subscription status
 aws sns list-subscriptions-by-topic --topic-arn <sns-topic-arn>
@@ -291,18 +306,19 @@ aws logs put-log-events \
 ## 🔍 Monitoring & Troubleshooting
 
 ### CloudWatch Console Access
+
 - **Log Group**: Search for `/aws/ec2/script-logs`
 - **Alarms**: Look for `CRITICAL-SCRIPT-ERROR-{stage}`
 - **Metrics**: Navigate to `ScriptLogs/{stage}` namespace
 
 ### Common Issues & Solutions
 
-| Issue | Solution |
-|-------|----------|
-| No email alerts | Confirm SNS subscription via email |
+| Issue                        | Solution                                       |
+| ---------------------------- | ---------------------------------------------- |
+| No email alerts              | Confirm SNS subscription via email             |
 | CloudWatch Agent not running | Check `/opt/aws/amazon-cloudwatch-agent/logs/` |
-| Missing log streams | Verify IAM permissions for CloudWatch Logs |
-| False positive alerts | Review metric filter pattern in Terraform |
+| Missing log streams          | Verify IAM permissions for CloudWatch Logs     |
+| False positive alerts        | Review metric filter pattern in Terraform      |
 
 ---
 
@@ -340,4 +356,3 @@ To verify monitoring works:
 4. Check email for alert notification
 
 ---
-
